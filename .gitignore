@@ -1,0 +1,22 @@
+# Entorno virtual
+.venv/
+
+# Caché de Python
+__pycache__/
+*.pyc
+
+# Archivos de logs
+logs/*.log
+
+# Archivos temporales
+temp/*
+
+# Salidas generadas
+output/*
+
+# Configuración de VS Code
+.vscode/
+
+# Sistema operativo
+Thumbs.db
+.DS_Store
