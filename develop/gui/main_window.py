@@ -2,6 +2,7 @@ import customtkinter as ctk
 
 from gui.components.header import Header
 from gui.theme.colors import BACKGROUND
+from gui.components.status_panel import StatusPanel
 
 
 class MainWindow(ctk.CTk):
@@ -22,8 +23,12 @@ class MainWindow(ctk.CTk):
             fg_color=BACKGROUND
         )
 
-        self.build_ui()
+        Header(self).pack(fill="x", padx=20, pady=(20, 10))
 
-    def build_ui(self):
+        self.status_panel = StatusPanel(self)
 
-        Header(self).pack(fill="x")
+        self.status_panel.pack(
+        fill="x",
+        padx=20,
+        pady=(0, 20)
+        )
