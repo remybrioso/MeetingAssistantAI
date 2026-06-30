@@ -1,0 +1,2 @@
+PADDING = 20
+RADIUS = 12
