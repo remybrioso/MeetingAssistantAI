@@ -1,8 +1,13 @@
+from application.app_controller import AppController
 from gui.main_window import MainWindow
 
 
 def main():
-    app = MainWindow()
+
+    controller = AppController()
+
+    app = MainWindow(controller)
+
     app.mainloop()
 
 
