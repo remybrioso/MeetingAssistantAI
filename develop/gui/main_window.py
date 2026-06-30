@@ -3,6 +3,7 @@ import customtkinter as ctk
 from gui.components.header import Header
 from gui.theme.colors import BACKGROUND
 from gui.components.status_panel import StatusPanel
+from gui.components.activity_panel import ActivityPanel
 
 
 class MainWindow(ctk.CTk):
@@ -32,3 +33,13 @@ class MainWindow(ctk.CTk):
         padx=20,
         pady=(0, 20)
         )
+        self.activity = ActivityPanel(self)
+
+        self.activity.pack(
+            fill="both",
+            expand=True,
+            padx=20,
+            pady=(0, 20)
+        )
+
+        self.activity.add("Aplicación iniciada correctamente.")
