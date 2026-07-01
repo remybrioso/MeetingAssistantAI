@@ -14,6 +14,8 @@ class AppController:
         self.state = container.get("app_state")
         self.bus = container.get("event_bus")
         self.logger = container.get("logger")
+        
+        self.audio_capture_service = container.get("audio_capture_service")
 
     def start_meeting(self):
 

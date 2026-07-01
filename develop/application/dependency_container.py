@@ -7,6 +7,7 @@ Contenedor de dependencias de la aplicación.
 from application.app_state import AppState
 from application.event_bus import EventBus
 from services.logger_service import LoggerService
+from services.audio_capture_service import AudioCaptureService
 
 
 class DependencyContainer:
@@ -31,3 +32,9 @@ container = DependencyContainer()
 container.register("event_bus", EventBus())
 container.register("app_state", AppState())
 container.register("logger", LoggerService())
+
+# Servicios de negocio
+container.register(
+    "audio_capture_service",
+    AudioCaptureService()
+)

@@ -1,28 +1,37 @@
 import time
 
 from engines.audio.audio_session import AudioSession
+from models.recording_state import RecordingState
 
 
 session = AudioSession()
 
-print("Iniciando...")
+print("Estado inicial:", session.state)
 
 session.start()
 
-time.sleep(3)
+print("Después de iniciar:", session.state)
 
-print(session.duration)
+time.sleep(2)
 
 session.pause()
 
-print(session.is_paused)
+print("Después de pausar:", session.state)
+
+time.sleep(1)
 
 session.resume()
 
-print(session.is_paused)
+print("Después de reanudar:", session.state)
+
+time.sleep(2)
 
 session.stop()
 
-print(session.is_recording)
+print("Después de finalizar:", session.state)
 
-print(session.duration)
+print("Duración:", session.duration)
+
+assert session.state == RecordingState.FINISHED
+
+print("\nPrueba satisfactoria.")

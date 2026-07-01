@@ -6,6 +6,8 @@ Controla el estado de una sesión de grabación.
 
 from datetime import datetime
 
+from models.recording_state import RecordingState
+
 
 class AudioSession:
 
@@ -14,44 +16,46 @@ class AudioSession:
         self._started_at = None
         self._finished_at = None
 
-        self._recording = False
-        self._paused = False
+        self._state = RecordingState.IDLE
 
     def start(self):
 
         self._started_at = datetime.now()
-
         self._finished_at = None
 
-        self._recording = True
-
-        self._paused = False
+        self._state = RecordingState.RECORDING
 
     def pause(self):
 
-        if self._recording:
-            self._paused = True
+        if self._state == RecordingState.RECORDING:
+            self._state = RecordingState.PAUSED
 
     def resume(self):
 
-        if self._recording:
-            self._paused = False
+        if self._state == RecordingState.PAUSED:
+            self._state = RecordingState.RECORDING
 
     def stop(self):
 
-        self._finished_at = datetime.now()
+        if self._state in (
+            RecordingState.RECORDING,
+            RecordingState.PAUSED
+        ):
 
-        self._recording = False
+            self._finished_at = datetime.now()
+            self._state = RecordingState.FINISHED
 
-        self._paused = False
+    @property
+    def state(self):
+        return self._state
 
     @property
     def is_recording(self):
-        return self._recording
+        return self._state == RecordingState.RECORDING
 
     @property
     def is_paused(self):
-        return self._paused
+        return self._state == RecordingState.PAUSED
 
     @property
     def duration(self):
