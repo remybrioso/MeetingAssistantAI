@@ -23,6 +23,7 @@ class AppController:
         self.logger.info("Reunión iniciada.")
 
         self.bus.emit("meeting_started")
+        self.bus.emit("activity", "Reunión iniciada.")
 
     def pause_meeting(self):
 
@@ -31,6 +32,7 @@ class AppController:
         self.logger.info("Reunión pausada.")
 
         self.bus.emit("meeting_paused")
+        self.bus.emit("activity", "Reunión pausada.")
 
     def resume_meeting(self):
 
@@ -39,6 +41,7 @@ class AppController:
         self.logger.info("Reunión reanudada.")
 
         self.bus.emit("meeting_resumed")
+        self.bus.emit("activity", "Reunión reanudada.")
 
     def stop_meeting(self):
 
@@ -48,3 +51,6 @@ class AppController:
         self.logger.info("Reunión finalizada.")
 
         self.bus.emit("meeting_finished")
+        self.bus.emit("activity", "Reunión finalizada.")
+
+    
