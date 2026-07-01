@@ -5,6 +5,7 @@ from application.dependency_container import container
 from gui.components.header import Header
 from gui.components.status_panel import StatusPanel
 from gui.components.activity_panel import ActivityPanel
+from gui.components.action_panel import ActionPanel
 
 from gui.theme.colors import BACKGROUND
 
@@ -23,9 +24,7 @@ class MainWindow(ctk.CTk):
         self.title("Meeting Assistant AI")
         self.geometry("1300x800")
 
-        self.configure(
-            fg_color=BACKGROUND
-        )
+        self.configure(fg_color=BACKGROUND)
 
         self.build_ui()
 
@@ -36,9 +35,11 @@ class MainWindow(ctk.CTk):
 
     def build_ui(self):
 
+        # Header
         self.header = Header(self)
         self.header.pack(fill="x", padx=20, pady=(20, 10))
 
+        # Estado
         self.status_panel = StatusPanel(self)
         self.status_panel.pack(
             fill="x",
@@ -46,6 +47,7 @@ class MainWindow(ctk.CTk):
             pady=(0, 20)
         )
 
+        # Actividad
         self.activity = ActivityPanel(self)
         self.activity.pack(
             fill="both",
@@ -56,28 +58,17 @@ class MainWindow(ctk.CTk):
 
         self.activity.add("Aplicación iniciada correctamente.")
 
-        buttons = ctk.CTkFrame(self, fg_color="transparent")
-        buttons.pack(pady=20)
+        # Panel de acciones
+        self.action_panel = ActionPanel(
+            self,
+            self.controller
+        )
 
-        ctk.CTkButton(
-            buttons,
-            text="Iniciar reunión",
-            width=180,
-            command=self.start_meeting
-        ).pack(side="left", padx=10)
-
-        ctk.CTkButton(
-            buttons,
-            text="Finalizar reunión",
-            width=180,
-            command=self.stop_meeting
-        ).pack(side="left", padx=10)
-
-    def start_meeting(self):
-        self.controller.start_meeting()
-
-    def stop_meeting(self):
-        self.controller.stop_meeting()
+        self.action_panel.pack(
+            fill="x",
+            padx=20,
+            pady=(0, 20)
+        )
 
     def on_meeting_started(self):
         self.status_panel.set_status("meeting", True)
