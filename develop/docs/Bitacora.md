@@ -1,16 +1,37 @@
-## MAI-001 - Metodología de trabajo
+## MAI-004 - Cierre de base UX de grabación
 
-Se crea estructura de backlog para controlar historias del proyecto.
+Estado actual:
 
-Carpetas creadas:
+### Core
+- EventBus funcional.
+- DependencyContainer funcional.
+- AppState funcional.
+- AppController integrado.
 
-- docs/backlog
-- docs/sprints
-- docs/release_notes
+### Servicios
+- LoggerService funcional.
+- ConfigurationService funcional.
+- AudioCaptureService funcional.
+- MeetingTimer sin threads.
 
-Reglas establecidas:
+### Audio
+- DeviceManager funcional.
+- AudioSession funcional.
+- AudioRecorder funcional.
+- Grabación desde GUI funcional.
 
-- Trabajar en rama develop.
-- Hacer commit al finalizar cada historia aprobada.
-- No avanzar con errores.
-- Mantener main como versión estable.
+### GUI
+- MainWindow funcional.
+- Header funcional.
+- StatusPanel funcional.
+- ActivityPanel funcional.
+- ActionPanel funcional.
+- Botones inteligentes funcionales.
+- Indicador REC funcional.
+- Cronómetro funcional.
+
+### Flujo validado
+Usuario -> GUI -> AppController -> AudioCaptureService -> AudioRecorder -> meeting.wav
+
+### Próximo objetivo
+Implementar captura de audio del sistema para grabar voces de reuniones Teams/Meet/Zoom.
