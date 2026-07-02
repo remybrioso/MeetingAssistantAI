@@ -25,6 +25,9 @@ class StatusPanel(ctk.CTkFrame):
         
         self.bus = container.get("event_bus")
 
+        self.bus.subscribe("meeting_started", self.on_meeting_started)
+        self.bus.subscribe("meeting_finished", self.on_meeting_finished)
+
         self.bus.subscribe(
             "timer_tick",
             self.on_timer_tick
@@ -54,6 +57,9 @@ class StatusPanel(ctk.CTkFrame):
         self.audio = self._create_status(content, "Audio", ERROR)
         self.ai = self._create_status(content, "IA", ERROR)
         self.document = self._create_status(content, "Documento", ERROR)
+        self.rec_label = ctk.CTkLabel(self, text="", font=("segoe UI", 18, "bold"), text_color=ERROR)
+
+        self.rec_label.pack(anchor="e", padx=20)
 
     def _create_status(self, master, text, color):
 
@@ -96,6 +102,13 @@ class StatusPanel(ctk.CTkFrame):
 
     def on_timer_tick(self, value):
         self.after(0, lambda: self.timer_value.configure(text=value))
+
+    def on_meeting_started(self):
+        self.rec_label.configure(text="🔴 REC")
+
+
+    def on_meeting_finished(self):
+        self.rec_label.configure(text="")
 
     
             
