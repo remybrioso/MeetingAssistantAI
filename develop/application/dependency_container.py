@@ -9,6 +9,7 @@ from application.event_bus import EventBus
 from services.logger_service import LoggerService
 from services.audio_capture_service import AudioCaptureService
 from services.configuration_service import ConfigurationService
+from services.meeting_timer import MeetingTimer
 
 
 class DependencyContainer:
@@ -36,6 +37,7 @@ container.register("logger", LoggerService())
 
 
 configuration = ConfigurationService()
+event_bus = container.get("event_bus")
 
 # Servicios de negocio
 container.register(
@@ -46,4 +48,8 @@ container.register(
 container.register(
     "audio_capture_service",
     AudioCaptureService(configuration)
+)
+container.register(
+    "meeting_timer",
+    MeetingTimer(event_bus)
 )

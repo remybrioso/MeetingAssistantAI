@@ -15,11 +15,13 @@ class AppController:
         self.bus = container.get("event_bus")
         self.logger = container.get("logger")
         self.audio_capture_service = container.get("audio_capture_service")
+        self.meeting_timer = container.get("meeting_timer")
 
     def start_meeting(self):
         if self.state.get("meeting_active"):
             return
         self.audio_capture_service.start()
+        self.meeting_timer.start()
 
         self.state.set("meeting_active", True)
         self.state.set("audio_status", "recording")
@@ -51,6 +53,7 @@ class AppController:
         if not self.state.get("meeting_active"):
             return
         self.audio_capture_service.stop()
+        self.meeting_timer.stop()
 
         self.state.set("meeting_active", False)
         self.state.set("audio_status", "idle")
