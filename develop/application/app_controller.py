@@ -17,6 +17,9 @@ class AppController:
         self.audio_capture_service = container.get("audio_capture_service")
 
     def start_meeting(self):
+        if self.state.get("meeting_active"):
+            return
+        self.audio_capture_service.start()
 
         self.state.set("meeting_active", True)
         self.state.set("audio_status", "recording")
@@ -45,6 +48,9 @@ class AppController:
         self.bus.emit("activity", "Reunión reanudada.")
 
     def stop_meeting(self):
+        if not self.state.get("meeting_active"):
+            return
+        self.audio_capture_service.stop()
 
         self.state.set("meeting_active", False)
         self.state.set("audio_status", "idle")
