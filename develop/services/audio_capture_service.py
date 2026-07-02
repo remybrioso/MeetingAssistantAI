@@ -1,8 +1,11 @@
 """
 audio_capture_service.py
 
-Servicio encargado de coordinar una sesión de grabación.
+Servicio encargado de coordinar la captura de audio.
 """
+
+import os
+
 
 from engines.audio.audio_session import AudioSession
 from engines.audio.recorder import AudioRecorder
@@ -10,22 +13,31 @@ from engines.audio.recorder import AudioRecorder
 
 class AudioCaptureService:
 
-    def __init__(self):
-
+    def __init__(self, configuration):
         self.session = AudioSession()
         self.recorder = AudioRecorder()
 
-    def start(
-        self,
-        device_id: int,
-        filename: str
-    ):
+        self.config = configuration
+
+    def start(self):
+
+        os.makedirs(
+            self.config.output_directory,
+            exist_ok=True
+        )
+
+        filename = os.path.join(
+            self.config.output_directory,
+            "meeting.wav"
+        )
 
         self.session.start()
 
         self.recorder.start(
-            device_id=device_id,
-            filename=filename
+            device_id=self.config.microphone,
+            filename=filename,
+            samplerate=self.config.sample_rate,
+            channels=self.config.channels
         )
 
     def pause(self):

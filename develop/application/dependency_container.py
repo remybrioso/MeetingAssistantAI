@@ -8,6 +8,7 @@ from application.app_state import AppState
 from application.event_bus import EventBus
 from services.logger_service import LoggerService
 from services.audio_capture_service import AudioCaptureService
+from services.configuration_service import ConfigurationService
 
 
 class DependencyContainer:
@@ -33,8 +34,16 @@ container.register("event_bus", EventBus())
 container.register("app_state", AppState())
 container.register("logger", LoggerService())
 
+
+configuration = ConfigurationService()
+
 # Servicios de negocio
 container.register(
+    "configuration",
+    configuration
+)
+
+container.register(
     "audio_capture_service",
-    AudioCaptureService()
+    AudioCaptureService(configuration)
 )
