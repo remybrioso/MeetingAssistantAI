@@ -51,5 +51,5 @@ container.register(
 )
 container.register(
     "meeting_timer",
-    MeetingTimer(event_bus)
+    MeetingTimer()
 )

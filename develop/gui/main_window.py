@@ -17,6 +17,7 @@ class MainWindow(ctk.CTk):
 
         self.controller = controller
         self.bus = container.get("event_bus")
+        self.timer = container.get("meeting_timer")
 
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
@@ -41,6 +42,8 @@ class MainWindow(ctk.CTk):
         self.bus.subscribe("activity", self.activity.add)
         self.bus.subscribe("meeting_started", self.on_meeting_started)
         self.bus.subscribe("meeting_finished", self.on_meeting_finished)
+
+        self.update_timer()
 
     def build_ui(self):
 
@@ -85,6 +88,14 @@ class MainWindow(ctk.CTk):
             padx=20,
             pady=(0, 20)
         )
+
+    def update_timer(self):
+
+        if self.timer.running:
+            value = self.timer.tick()
+            self.bus.emit("timer_tick", value)
+
+        self.after(1000, self.update_timer)
         
     def on_meeting_started(self):
         self.status_panel.set_status("meeting", True)

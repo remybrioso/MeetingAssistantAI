@@ -1,57 +1,36 @@
 """
 meeting_timer.py
 
-Cronómetro de la reunión.
+Cronómetro de reunión sin threads.
 """
-
-import threading
-import time
 
 
 class MeetingTimer:
 
-    def __init__(self, bus):
-
-        self.bus = bus
+    def __init__(self):
 
         self.seconds = 0
-
         self.running = False
-
-        self.thread = None
 
     def start(self):
 
-        if self.running:
-            return
-
-        self.running = True
         self.seconds = 0
-
-        self.thread = threading.Thread(
-            target=self._run,
-            daemon=True
-        )
-
-        self.thread.start()
+        self.running = True
 
     def stop(self):
 
         self.running = False
 
-    def _run(self):
+    def tick(self):
 
-        while self.running:
-
-            mins, secs = divmod(self.seconds, 60)
-
-            hours, mins = divmod(mins, 60)
-
-            self.bus.emit(
-                "timer_tick",
-                f"{hours:02}:{mins:02}:{secs:02}"
-            )
-
-            time.sleep(1)
-
+        if self.running:
             self.seconds += 1
+
+        return self.formatted_time()
+
+    def formatted_time(self):
+
+        mins, secs = divmod(self.seconds, 60)
+        hours, mins = divmod(mins, 60)
+
+        return f"{hours:02}:{mins:02}:{secs:02}"
