@@ -1,37 +1,15 @@
-## MAI-004 - Cierre de base UX de grabación
+## MAI-005 - Diseño de Captura Dual de Audio
 
-Estado actual:
+Se define la arquitectura de FEATURE-002.
 
-### Core
-- EventBus funcional.
-- DependencyContainer funcional.
-- AppState funcional.
-- AppController integrado.
+Decisiones:
 
-### Servicios
-- LoggerService funcional.
-- ConfigurationService funcional.
-- AudioCaptureService funcional.
-- MeetingTimer sin threads.
+- AudioCaptureService coordinará la captura.
+- Micrófono y audio del sistema se capturarán por separado.
+- La mezcla se realizará después de finalizar la grabación.
+- Se priorizará WASAPI Loopback.
+- Stereo Mix será alternativa.
+- El archivo final será output/meeting.wav.
 
-### Audio
-- DeviceManager funcional.
-- AudioSession funcional.
-- AudioRecorder funcional.
-- Grabación desde GUI funcional.
-
-### GUI
-- MainWindow funcional.
-- Header funcional.
-- StatusPanel funcional.
-- ActivityPanel funcional.
-- ActionPanel funcional.
-- Botones inteligentes funcionales.
-- Indicador REC funcional.
-- Cronómetro funcional.
-
-### Flujo validado
-Usuario -> GUI -> AppController -> AudioCaptureService -> AudioRecorder -> meeting.wav
-
-### Próximo objetivo
-Implementar captura de audio del sistema para grabar voces de reuniones Teams/Meet/Zoom.
+Próximo objetivo:
+Implementar SystemAudioRecorder.
