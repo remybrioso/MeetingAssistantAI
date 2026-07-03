@@ -1,22 +1,18 @@
-# FEATURE-002 - Captura Dual de Audio
+## Cambio de arquitectura - MAI-017
 
-## Objetivo
+Se decide no usar `meeting.wav` como entrada principal para Whisper.
 
-Implementar captura simultánea de:
-
-- Micrófono del usuario.
-- Audio del sistema.
-- Mezcla final en un único archivo `meeting.wav`.
-
-Este archivo será usado posteriormente por Whisper para la transcripción.
-
----
-
-## Arquitectura propuesta
+Nueva estrategia:
 
 ```text
-AudioCaptureService
-    |
-    |-- MicrophoneRecorder
-    |-- SystemAudioRecorder
-    |-- AudioMixer
+mic.wav       -> Whisper -> mic_transcript.json
+system.wav    -> Whisper -> system_transcript.json
+
+mic_transcript.json
+system_transcript.json
+        |
+        v
+TranscriptMerger
+        |
+        v
+transcript.json

@@ -1,15 +1,14 @@
-## MAI-005 - Diseño de Captura Dual de Audio
+## MAI-017 - Cambio hacia Transcript Pipeline
 
-Se define la arquitectura de FEATURE-002.
+Se cambia la estrategia de procesamiento.
 
-Decisiones:
+Antes:
+- Mezclar mic.wav + system.wav -> meeting.wav -> Whisper.
 
-- AudioCaptureService coordinará la captura.
-- Micrófono y audio del sistema se capturarán por separado.
-- La mezcla se realizará después de finalizar la grabación.
-- Se priorizará WASAPI Loopback.
-- Stereo Mix será alternativa.
-- El archivo final será output/meeting.wav.
+Ahora:
+- Transcribir mic.wav.
+- Transcribir system.wav.
+- Fusionar transcripciones por timestamps.
 
-Próximo objetivo:
-Implementar SystemAudioRecorder.
+Decisión:
+`meeting.wav` deja de ser requisito para Whisper y pasa a ser un artefacto opcional.
