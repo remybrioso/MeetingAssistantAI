@@ -4,52 +4,45 @@ audio_capture_service.py
 Servicio encargado de coordinar la captura de audio.
 """
 
-import os
-
 from engines.audio.audio_session import AudioSession
 from engines.audio.microphone_engine import MicrophoneEngine
+from models.recording_session import RecordingSession
 
 
 class AudioCaptureService:
 
     def __init__(self, configuration):
 
-        self.session = AudioSession()
-        self.microphone = MicrophoneEngine()
+        self.audio_session = AudioSession()
+        self.recording_session = None
 
+        self.microphone = MicrophoneEngine()
         self.config = configuration
 
     def start(self):
 
-        os.makedirs(
-            self.config.output_directory,
-            exist_ok=True
+        self.recording_session = RecordingSession(
+            base_output_dir=self.config.output_directory
         )
 
-        filename = os.path.join(
-            self.config.output_directory,
-            "meeting.wav"
-        )
-
-        self.session.start()
+        self.audio_session.start()
 
         self.microphone.start(
             device_id=self.config.microphone,
-            filename=filename,
+            filename=str(self.recording_session.meeting_file),
             samplerate=self.config.sample_rate,
             channels=self.config.channels
         )
 
     def pause(self):
 
-        self.session.pause()
+        self.audio_session.pause()
 
     def resume(self):
 
-        self.session.resume()
+        self.audio_session.resume()
 
     def stop(self):
 
         self.microphone.stop()
-
-        self.session.stop()
+        self.audio_session.stop()
