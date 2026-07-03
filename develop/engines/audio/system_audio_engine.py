@@ -4,6 +4,7 @@ system_audio_engine.py
 Motor para capturar audio del sistema usando SoundCard Loopback.
 """
 
+import threading
 from pathlib import Path
 
 import soundcard as sc
@@ -15,17 +16,43 @@ class SystemAudioEngine:
     def __init__(self):
 
         self._recording = False
+        self._thread = None
 
     @property
     def is_recording(self):
 
         return self._recording
 
-    def record(
+    def start(
         self,
         filename: str,
-        duration: int,
         samplerate: int = 48000
+    ):
+
+        if self._recording:
+            return
+
+        self._recording = True
+
+        self._thread = threading.Thread(
+            target=self._record,
+            args=(filename, samplerate),
+            daemon=True
+        )
+
+        self._thread.start()
+
+    def stop(self):
+
+        self._recording = False
+
+        if self._thread:
+            self._thread.join(timeout=3)
+
+    def _record(
+        self,
+        filename: str,
+        samplerate: int
     ):
 
         Path(filename).parent.mkdir(
@@ -40,17 +67,19 @@ class SystemAudioEngine:
             include_loopback=True
         )
 
-        self._recording = True
-
-        with loopback.recorder(samplerate=samplerate) as recorder:
-            data = recorder.record(
-                numframes=samplerate * duration
-            )
-
-        sf.write(
+        with sf.SoundFile(
             filename,
-            data,
-            samplerate
-        )
+            mode="w",
+            samplerate=samplerate,
+            channels=2
+        ) as file:
 
-        self._recording = False
+            with loopback.recorder(samplerate=samplerate) as recorder:
+
+                while self._recording:
+
+                    data = recorder.record(
+                        numframes=samplerate
+                    )
+
+                    file.write(data)
