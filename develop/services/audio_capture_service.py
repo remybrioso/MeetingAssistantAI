@@ -6,16 +6,16 @@ Servicio encargado de coordinar la captura de audio.
 
 import os
 
-
 from engines.audio.audio_session import AudioSession
-from engines.audio.recorder import AudioRecorder
+from engines.audio.microphone_engine import MicrophoneEngine
 
 
 class AudioCaptureService:
 
     def __init__(self, configuration):
+
         self.session = AudioSession()
-        self.recorder = AudioRecorder()
+        self.microphone = MicrophoneEngine()
 
         self.config = configuration
 
@@ -33,7 +33,7 @@ class AudioCaptureService:
 
         self.session.start()
 
-        self.recorder.start(
+        self.microphone.start(
             device_id=self.config.microphone,
             filename=filename,
             samplerate=self.config.sample_rate,
@@ -50,6 +50,6 @@ class AudioCaptureService:
 
     def stop(self):
 
-        self.recorder.stop()
+        self.microphone.stop()
 
         self.session.stop()
