@@ -8,12 +8,31 @@ from dataclasses import dataclass, field
 
 
 @dataclass
+class Word:
+
+    start: float
+    end: float
+    text: str
+    confidence: float | None = None
+
+    def as_dict(self):
+
+        return {
+            "start": self.start,
+            "end": self.end,
+            "text": self.text,
+            "confidence": self.confidence,
+        }
+
+
+@dataclass
 class Segment:
 
     start: float
     end: float
     speaker: str
     text: str
+    words: list[Word] = field(default_factory=list)
 
     def as_dict(self):
 
@@ -22,6 +41,10 @@ class Segment:
             "end": self.end,
             "speaker": self.speaker,
             "text": self.text,
+            "words": [
+                word.as_dict()
+                for word in self.words
+            ],
         }
 
 
