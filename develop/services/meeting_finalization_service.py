@@ -42,4 +42,33 @@ class MeetingFinalizationService:
                 recording_session
             )
 
+        if self.bus:
+            self.bus.emit("meeting_processing_started")
+
+        transcript = self.transcript_service.transcribe_microphone(
+            recording_session
+        )
+
+        if self.bus:
+            self.bus.emit("meeting_transcribing")
+
+        output_file = (
+            recording_session.session_dir /
+            "transcript.json"
+        )
+
+        self.storage_service.save(
+            transcript,
+            output_file
+        )
+
+        if self.bus:
+            self.bus.emit("meeting_saving")
+
+        if self.bus:
+            self.bus.emit(
+                "meeting_processing_completed",
+                recording_session
+            )
+
         return transcript
