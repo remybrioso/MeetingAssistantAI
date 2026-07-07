@@ -22,6 +22,17 @@ class TranscriptStorageService:
                 indent=4
             )
 
+    def save_json(self, data, filename):
+
+        with open(filename, "w", encoding="utf-8") as file:
+
+            json.dump(
+                data.as_dict(),
+                file,
+                ensure_ascii=False,
+                indent=4
+            )
+
     def load(self, filename) -> Transcript:
 
         with open(filename, "r", encoding="utf-8") as file:
