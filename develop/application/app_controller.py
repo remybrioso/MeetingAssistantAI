@@ -6,6 +6,7 @@ Controlador principal de la aplicación.
 
 from application.dependency_container import container
 from services.meeting_finalization_service import MeetingFinalizationService
+from services.task_runner import TaskRunner
 
 
 class AppController:
@@ -19,6 +20,7 @@ class AppController:
         self.meeting_timer = container.get("meeting_timer")
         self.timer = container.get("meeting_timer")
         self.meeting_finalization_service = MeetingFinalizationService(self.bus)
+        self.task_runner = TaskRunner()
 
     def start_meeting(self):
         if self.state.get("meeting_active"):
@@ -67,8 +69,7 @@ class AppController:
 
         self.bus.emit("meeting_finished")
         self.bus.emit("activity", "Reunión finalizada.")
-        self.meeting_finalization_service.finalize(
+        self.task_runner.run(
+        self.meeting_finalization_service.finalize,
         self.audio_capture_service.recording_session
         )
-
-    
