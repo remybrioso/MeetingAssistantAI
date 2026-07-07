@@ -18,7 +18,6 @@ class AppController:
         self.logger = container.get("logger")
         self.audio_capture_service = container.get("audio_capture_service")
         self.meeting_timer = container.get("meeting_timer")
-        self.timer = container.get("meeting_timer")
         self.meeting_finalization_service = MeetingFinalizationService(self.bus)
         self.task_runner = TaskRunner()
 
@@ -27,7 +26,7 @@ class AppController:
             return
         self.audio_capture_service.start()
         self.meeting_timer.start()
-        self.timer.start()
+        
 
         self.state.set("meeting_active", True)
         self.state.set("audio_status", "recording")
@@ -60,7 +59,6 @@ class AppController:
             return
         self.audio_capture_service.stop()
         self.meeting_timer.stop()
-        self.timer.stop()
 
         self.state.set("meeting_active", False)
         self.state.set("audio_status", "idle")
