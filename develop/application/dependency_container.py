@@ -37,7 +37,7 @@ container.register("logger", LoggerService())
 
 
 configuration = ConfigurationService()
-event_bus = container.get("event_bus")
+
 
 # Servicios de negocio
 container.register(
