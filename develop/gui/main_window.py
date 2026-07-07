@@ -42,6 +42,27 @@ class MainWindow(ctk.CTk):
         self.bus.subscribe("activity", self.activity.add)
         self.bus.subscribe("meeting_started", self.on_meeting_started)
         self.bus.subscribe("meeting_finished", self.on_meeting_finished)
+        self.bus.subscribe(
+            "meeting_processing_started",
+            lambda: self.activity.add("Procesando reunión...")
+        )
+
+        self.bus.subscribe(
+            "meeting_transcribing",
+            lambda: self.activity.add("Transcribiendo audio...")
+        )
+
+        self.bus.subscribe(
+            "meeting_saving",
+            lambda: self.activity.add("Guardando transcripción...")
+        )
+
+        self.bus.subscribe(
+            "meeting_processing_completed",
+            lambda session: self.activity.add(
+                f"Procesamiento completado: {session.session_name}"
+            )
+        )
 
         self.update_timer()
 
