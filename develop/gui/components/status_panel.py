@@ -57,6 +57,7 @@ class StatusPanel(ctk.CTkFrame):
         self.audio = self._create_status(content, "Audio", ERROR)
         self.ai = self._create_status(content, "IA", ERROR)
         self.document = self._create_status(content, "Documento", ERROR)
+        self.processing = self._create_status(content, "Procesando", ERROR)
         self.rec_label = ctk.CTkLabel(self, text="", font=("segoe UI", 18, "bold"), text_color=ERROR)
 
         self.rec_label.pack(anchor="e", padx=20)
@@ -91,12 +92,12 @@ class StatusPanel(ctk.CTkFrame):
         color = SUCCESS if active else ERROR
 
         controls = {
-            "meeting": self.meeting,
-            "audio": self.audio,
-            "ai": self.ai,
-            "document": self.document,
-        }
-
+        "meeting": self.meeting,
+        "audio": self.audio,
+        "ai": self.ai,
+        "document": self.document,
+        "processing": self.processing,
+    }
         if service in controls:
             controls[service].configure(text_color=color)
 

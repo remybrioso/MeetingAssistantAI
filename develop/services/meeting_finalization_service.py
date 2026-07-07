@@ -21,54 +21,44 @@ class MeetingFinalizationService:
 
     def finalize(self, recording_session):
 
-        transcript = self.transcript_service.transcribe_microphone(
-            recording_session
-        )
+        try:
+            if self.bus:
+                self.bus.emit("meeting_processing_started")
 
-        output_file = (
-            recording_session.session_dir /
-            "transcript.json"
-        )
+            if self.bus:
+                self.bus.emit("meeting_transcribing")
 
-        self.storage_service.save(
-            transcript,
-            output_file
-        )
-
-        if self.bus:
-
-            self.bus.emit(
-                "meeting_processing_completed",
+            transcript = self.transcript_service.transcribe_microphone(
                 recording_session
             )
 
-        if self.bus:
-            self.bus.emit("meeting_processing_started")
+            if self.bus:
+                self.bus.emit("meeting_saving")
 
-        transcript = self.transcript_service.transcribe_microphone(
-            recording_session
-        )
-
-        if self.bus:
-            self.bus.emit("meeting_transcribing")
-
-        output_file = (
-            recording_session.session_dir /
-            "transcript.json"
-        )
-
-        self.storage_service.save(
-            transcript,
-            output_file
-        )
-
-        if self.bus:
-            self.bus.emit("meeting_saving")
-
-        if self.bus:
-            self.bus.emit(
-                "meeting_processing_completed",
-                recording_session
+            output_file = (
+                recording_session.session_dir /
+                "transcript.json"
             )
 
-        return transcript
+            self.storage_service.save(
+                transcript,
+                output_file
+            )
+
+            if self.bus:
+                self.bus.emit(
+                    "meeting_processing_completed",
+                    recording_session
+                )
+
+            return transcript
+
+        except Exception as ex:
+
+            if self.bus:
+                self.bus.emit(
+                    "meeting_processing_failed",
+                    str(ex)
+                )
+
+            raise

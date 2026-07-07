@@ -64,6 +64,37 @@ class MainWindow(ctk.CTk):
             )
         )
 
+        self.bus.subscribe(
+            "meeting_processing_started",
+            lambda: self.status_panel.set_status(
+                "processing",
+                True
+            )
+        )
+
+        self.bus.subscribe(
+            "meeting_processing_completed",
+            lambda session: self.status_panel.set_status(
+                "processing",
+                False
+            )
+        )
+
+        self.bus.subscribe(
+            "meeting_processing_failed",
+            lambda error: self.activity.add(
+                f"❌ Error durante el procesamiento: {error}"
+            )
+        )
+
+        self.bus.subscribe(
+            "meeting_processing_failed",
+            lambda error: self.status_panel.set_status(
+                "processing",
+                False
+            )
+        )
+
         self.update_timer()
 
     def build_ui(self):
