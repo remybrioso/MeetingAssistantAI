@@ -25,37 +25,34 @@ class MeetingPipelineService:
     def process(
         self,
         recording_session
-        ):
+    ):
         """
-        Ejecuta el pipeline completo.
+        Ejecuta el Knowledge Pipeline completo.
 
         Devuelve Summary.
         """
 
-        transcript_file = (
-        recording_session.session_dir /
-        "transcript.json"
-        )
+        workspace = recording_session.workspace
+
         summary = self.summary_service.generate_from_transcript(
-        transcript_file
+            workspace.transcript_json
         )
+
         valid, errors = self.validator.validate(summary)
 
-        artifacts_dir = (
-        recording_session.session_dir /
-        "artifacts"
-        )
-        summary_json = artifacts_dir / "summary.json"
-        summary_md = artifacts_dir / "summary.md"
+        if not valid:
+            raise ValueError(
+                "Summary inválido: " + "; ".join(errors)
+            )
 
         self.storage_service.save(
-        summary,
-        summary_json
+            summary,
+            workspace.summary_json
         )
 
         self.markdown_exporter.export(
-        summary,
-        summary_md
+            summary,
+            workspace.summary_markdown
         )
 
         return summary

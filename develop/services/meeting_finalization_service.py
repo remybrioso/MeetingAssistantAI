@@ -10,6 +10,12 @@ import soundfile as sf
 from models.processing_metrics import ProcessingMetrics
 from services.transcript_service import TranscriptService
 from services.transcript_storage_service import TranscriptStorageService
+from services.workspace_service import WorkspaceService
+from services.meeting_pipeline_service import MeetingPipelineService
+from services.summary_service import SummaryService
+from services.validators.summary_validator import SummaryValidator
+from services.artifact_storage_service import ArtifactStorageService
+from services.summary_markdown_exporter import SummaryMarkdownExporter
 
 
 class MeetingFinalizationService:
@@ -21,6 +27,15 @@ class MeetingFinalizationService:
         self.transcript_service = TranscriptService()
 
         self.storage_service = TranscriptStorageService()
+
+        self.workspace_service = WorkspaceService()
+
+        self.meeting_pipeline = MeetingPipelineService(
+            summary_service=SummaryService(),
+            validator=SummaryValidator(),
+            storage_service=ArtifactStorageService(),
+            markdown_exporter=SummaryMarkdownExporter()
+        )
 
     def finalize(self, recording_session):
 
@@ -55,6 +70,17 @@ class MeetingFinalizationService:
                 output_file
             )
 
+            workspace = self.workspace_service.create(
+                recording_session.session_dir
+            )
+
+            recording_session.workspace = workspace
+
+            self.storage_service.save(
+                transcript,
+                workspace.transcript_json
+            )
+
             save_time = time.time() - save_start
 
             audio_info = sf.info(
@@ -76,9 +102,18 @@ class MeetingFinalizationService:
                 language="es"
             )
 
+            self.storage_service.save_json(
+                metrics,
+                workspace.processing_metrics_json
+            )
+
             metrics_file = (
                 recording_session.session_dir /
                 "processing_metrics.json"
+            )
+
+            self.meeting_pipeline.process(
+                recording_session
             )
 
             self.storage_service.save_json(

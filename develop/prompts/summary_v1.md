@@ -9,6 +9,8 @@ Reglas:
 - No inventes información.
 - Si algo no aparece en la transcripción, no lo incluyas.
 - El idioma de respuesta debe ser español.
+- El campo key_points debe contener entre 3 y 5 elementos.
+- Si la reunión fue corta, extrae al menos 3 puntos razonables sin inventar información.
 
 Formato obligatorio:
 
