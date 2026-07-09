@@ -19,6 +19,8 @@ assert workspace.meeting_audio.name == "Reunion.wav"
 
 assert workspace.summary_json.name == "summary.json"
 assert workspace.summary_markdown.name == "Resumen.md"
+assert workspace.workspace_manifest.exists()
+assert workspace.workspace_manifest.name == "workspace.json"
 
 print(workspace)
 
