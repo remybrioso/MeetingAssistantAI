@@ -4,23 +4,22 @@ summary_service.py
 Genera Summary a partir de Transcript.
 """
 
-import json
 from pathlib import Path
 
-from models.artifacts.summary import Summary
 from providers.ollama_provider import OllamaProvider
+from services.response_parser import ResponseParser
 
 
 class SummaryService:
 
     def __init__(self):
-
         self.provider = OllamaProvider()
+        self.response_parser = ResponseParser()
 
     def generate_from_transcript(
         self,
         transcript_file: Path
-    ) -> Summary:
+    ):
 
         transcript_text = transcript_file.read_text(
             encoding="utf-8"
@@ -37,16 +36,13 @@ class SummaryService:
             transcript_text
         )
 
-        response = self.provider.generate(prompt)
+        response = self.provider.generate(
+            prompt
+        )
 
-        data = json.loads(response)
-
-        return Summary(
-            artifact_type="summary",
+        return self.response_parser.parse_summary(
+            response=response,
             provider="ollama",
             model=self.provider.model,
-            prompt_version="summary_v1",
-            title=data["title"],
-            executive_summary=data["executive_summary"],
-            key_points=data["key_points"]
+            prompt_version="summary_v1"
         )

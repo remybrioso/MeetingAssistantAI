@@ -16,24 +16,64 @@ class OllamaProvider(AIProvider):
         model: str = "qwen2.5:3b",
         url: str = "http://localhost:11434/api/generate"
     ):
-
         self.model = model
         self.url = url
 
     def generate(self, prompt: str) -> str:
+
+        summary_schema = {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string"
+                },
+                "executive_summary": {
+                    "type": "string"
+                },
+                "key_points": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "minItems": 3,
+                    "maxItems": 5
+                }
+            },
+            "required": [
+                "title",
+                "executive_summary",
+                "key_points"
+            ]
+        }
 
         response = requests.post(
             self.url,
             json={
                 "model": self.model,
                 "prompt": prompt,
-                "stream": False
+                "format": summary_schema,
+                "stream": False,
+                "think": False,
+                "options": {
+                    "temperature": 0.1,
+                    "num_ctx": 8192
+                }
             },
-            timeout=120
+            timeout=180
         )
 
         response.raise_for_status()
 
-        data = response.json()
+        payload = response.json()
 
-        return data["response"]
+        generated_text = payload.get(
+            "response",
+            ""
+        ).strip()
+
+        if not generated_text:
+            raise ValueError(
+                "Ollama devolvió una respuesta vacía."
+            )
+
+        return generated_text

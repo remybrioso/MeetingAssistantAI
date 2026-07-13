@@ -10,11 +10,8 @@ from abc import ABC, abstractmethod
 class AIProvider(ABC):
 
     @abstractmethod
-    def generate(
-        self,
-        prompt: str
-    ) -> str:
+    def generate(self, prompt: str) -> str:
         """
         Genera una respuesta a partir de un prompt.
         """
-        pass
+        raise NotImplementedError

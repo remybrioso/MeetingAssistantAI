@@ -11,18 +11,16 @@ Reglas:
 - El idioma de respuesta debe ser español.
 - El campo key_points debe contener entre 3 y 5 elementos.
 - Si la reunión fue corta, extrae al menos 3 puntos razonables sin inventar información.
+- Tu respuesta debe comenzar exactamente con { y terminar exactamente con }.
+- No escribas ```json.
+- No escribas bloques Markdown.
+- No escribas texto antes ni después del JSON.
+- Si la transcripción es larga, resume solamente lo más importante.
+- El campo key_points debe contener entre 3 y 5 elementos.
 
 Formato obligatorio:
 
-{
-  "title": "Título breve de la reunión",
-  "executive_summary": "Resumen ejecutivo claro y breve",
-  "key_points": [
-    "Punto clave 1",
-    "Punto clave 2",
-    "Punto clave 3"
-  ]
-}
+{"title":"Título breve de la reunión","executive_summary":"Resumen ejecutivo claro y breve","key_points":["Punto clave 1","Punto clave 2","Punto clave 3"]}
 
 Transcripción:
 
