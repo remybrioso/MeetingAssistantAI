@@ -13,13 +13,16 @@ from pathlib import Path
 class RecordingSession:
 
     base_output_dir: str = "output"
+    session_prefix: str = "meeting"
     created_at: datetime = field(default_factory=datetime.now)
 
     def __post_init__(self):
 
         timestamp = self.created_at.strftime("%Y%m%d_%H%M%S")
 
-        self.session_name = f"meeting_{timestamp}"
+        self.session_name = (
+        f"{self.session_prefix}_{timestamp}"
+    )
 
         self.session_dir = Path(self.base_output_dir) / self.session_name
 
