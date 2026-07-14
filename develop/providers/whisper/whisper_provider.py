@@ -39,9 +39,27 @@ class WhisperProvider:
         segments, info = model.transcribe(
             audio_file,
             language=self.config.language,
+            task="transcribe",
             beam_size=self.config.beam_size,
-            word_timestamps=True
+            word_timestamps=True,
+            initial_prompt=(
+                "Esta es una reunión de trabajo en español. "
+                "Transcribe fielmente en español, respetando nombres propios, "
+                "términos técnicos, acuerdos, responsables y fechas."
+            ),
+            condition_on_previous_text=False,
+            vad_filter=True
         )
+
+        print("=" * 60)
+        print("WHISPER TRANSCRIPTION")
+        print(f"Idioma configurado: {self.config.language}")
+        print(f"Idioma reportado: {info.language}")
+        print(
+            "Probabilidad:",
+            getattr(info, "language_probability", "no disponible")
+        )
+        print("=" * 60)
 
         result = WhisperResult(
             language=info.language
