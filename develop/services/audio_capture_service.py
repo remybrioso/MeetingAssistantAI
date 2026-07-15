@@ -6,20 +6,30 @@ Servicio encargado de coordinar la captura de audio.
 
 from engines.audio.audio_session import AudioSession
 from engines.audio.microphone_engine import MicrophoneEngine
-from models.recording_session import RecordingSession
 from engines.audio.system_audio_engine import SystemAudioEngine
+from models.recording_session import RecordingSession
+from services.workspace_service import WorkspaceService
 
 
 class AudioCaptureService:
 
-    def __init__(self, configuration):
+    def __init__(
+        self,
+        configuration,
+        workspace_service=None
+    ):
 
         self.audio_session = AudioSession()
         self.recording_session = None
 
         self.microphone = MicrophoneEngine()
         self.system_audio = SystemAudioEngine()
+
         self.config = configuration
+
+        self.workspace_service = (
+            workspace_service or WorkspaceService()
+        )
 
     def start(self):
 
@@ -27,17 +37,29 @@ class AudioCaptureService:
             base_output_dir=self.config.output_directory
         )
 
+        workspace = self.workspace_service.create(
+            self.recording_session.session_dir
+        )
+
+        self.recording_session.attach_workspace(
+            workspace
+        )
+
         self.audio_session.start()
 
         self.microphone.start(
             device_id=self.config.microphone,
-            filename=str(self.recording_session.mic_file),
+            filename=str(
+                self.recording_session.mic_file
+            ),
             samplerate=self.config.sample_rate,
             channels=self.config.channels
         )
 
         self.system_audio.start(
-            filename=str(self.recording_session.system_file),
+            filename=str(
+                self.recording_session.system_file
+            ),
             samplerate=self.config.sample_rate
         )
 

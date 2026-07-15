@@ -4,18 +4,20 @@ meeting_finalization_service.py
 Caso de uso:
 Finalizar una reunión.
 """
+
 import time
+
 import soundfile as sf
 
 from models.processing_metrics import ProcessingMetrics
+from services.artifact_storage_service import ArtifactStorageService
+from services.meeting_pipeline_service import MeetingPipelineService
+from services.summary_markdown_exporter import SummaryMarkdownExporter
+from services.summary_service import SummaryService
 from services.transcript_service import TranscriptService
 from services.transcript_storage_service import TranscriptStorageService
-from services.workspace_service import WorkspaceService
-from services.meeting_pipeline_service import MeetingPipelineService
-from services.summary_service import SummaryService
 from services.validators.summary_validator import SummaryValidator
-from services.artifact_storage_service import ArtifactStorageService
-from services.summary_markdown_exporter import SummaryMarkdownExporter
+from services.workspace_service import WorkspaceService
 
 
 class MeetingFinalizationService:
@@ -25,9 +27,7 @@ class MeetingFinalizationService:
         self.bus = bus
 
         self.transcript_service = TranscriptService()
-
         self.storage_service = TranscriptStorageService()
-
         self.workspace_service = WorkspaceService()
 
         self.meeting_pipeline = MeetingPipelineService(
@@ -41,40 +41,50 @@ class MeetingFinalizationService:
 
         try:
             start_time = time.time()
-            if self.bus:
-                self.bus.emit("meeting_processing_started")
 
             if self.bus:
-                self.bus.emit("meeting_transcribing")
+                self.bus.emit(
+                    "meeting_processing_started"
+                )
+
+            workspace = recording_session.workspace
+
+            # Compatibilidad con sesiones antiguas o pruebas
+            # que todavía no tengan Workspace asociado.
+            if workspace is None:
+
+                workspace = self.workspace_service.create(
+                    recording_session.session_dir
+                )
+
+                recording_session.attach_workspace(
+                    workspace
+                )
+
+            if self.bus:
+                self.bus.emit(
+                    "meeting_transcribing"
+                )
 
             transcription_start = time.time()
 
-            transcript = self.transcript_service.transcribe_microphone(
-                recording_session
+            transcript = (
+                self.transcript_service
+                .transcribe_microphone(
+                    recording_session
+                )
             )
 
-            transcription_time = time.time() - transcription_start
+            transcription_time = (
+                time.time() - transcription_start
+            )
 
             if self.bus:
-                self.bus.emit("meeting_saving")
-
-            output_file = (
-                recording_session.session_dir /
-                "transcript.json"
-            )
+                self.bus.emit(
+                    "meeting_saving"
+                )
 
             save_start = time.time()
-
-            self.storage_service.save(
-                transcript,
-                output_file
-            )
-
-            workspace = self.workspace_service.create(
-                recording_session.session_dir
-            )
-
-            recording_session.workspace = workspace
 
             self.storage_service.save(
                 transcript,
@@ -107,18 +117,8 @@ class MeetingFinalizationService:
                 workspace.processing_metrics_json
             )
 
-            metrics_file = (
-                recording_session.session_dir /
-                "processing_metrics.json"
-            )
-
             self.meeting_pipeline.process(
                 recording_session
-            )
-
-            self.storage_service.save_json(
-                metrics,
-                metrics_file
             )
 
             if self.bus:
