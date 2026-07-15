@@ -67,6 +67,18 @@ class ActionPanel(ctk.CTkFrame):
             command=self.controller.stop_meeting
         )
         self.btn_stop.pack(side="left", padx=8)
+        
+        self.btn_import = ctk.CTkButton(
+            buttons,
+            text="📂 Importar grabación",
+            width=170,
+            command=self.controller.import_recording
+        )
+
+        self.btn_import.pack(
+            side="left",
+            padx=8
+        )
 
         self.btn_export = ctk.CTkButton(
             buttons,
@@ -82,6 +94,20 @@ class ActionPanel(ctk.CTkFrame):
         self.bus.subscribe("meeting_paused", self.on_meeting_paused)
         self.bus.subscribe("meeting_resumed", self.on_meeting_resumed)
         self.bus.subscribe("meeting_finished", self.on_meeting_finished)
+        self.bus.subscribe(
+            "meeting_import_started",
+            self.on_import_started
+        )
+
+        self.bus.subscribe(
+            "meeting_import_completed",
+            self.on_import_completed
+        )
+
+        self.bus.subscribe(
+            "meeting_import_failed",
+            self.on_import_failed
+        )
 
     def _set_initial_state(self):
 
@@ -90,6 +116,9 @@ class ActionPanel(ctk.CTkFrame):
         self.btn_resume.configure(state="disabled")
         self.btn_stop.configure(state="disabled")
         self.btn_export.configure(state="disabled")
+        self.btn_import.configure(
+            state="normal"
+        )
 
     def on_meeting_started(self):
 
@@ -98,6 +127,9 @@ class ActionPanel(ctk.CTkFrame):
         self.btn_resume.configure(state="disabled")
         self.btn_stop.configure(state="normal")
         self.btn_export.configure(state="disabled")
+        self.btn_import.configure(
+            state="normal"
+        )
 
     def on_meeting_paused(self):
 
@@ -116,3 +148,47 @@ class ActionPanel(ctk.CTkFrame):
         self.btn_resume.configure(state="disabled")
         self.btn_stop.configure(state="disabled")
         self.btn_export.configure(state="normal")
+
+    def on_import_started(self, filename):
+
+        self.btn_start.configure(
+            state="disabled"
+        )
+
+        self.btn_import.configure(
+            state="disabled"
+        )
+
+        self.btn_export.configure(
+            state="disabled"
+        )
+
+
+    def on_import_completed(self, session):
+
+        self.btn_start.configure(
+            state="normal"
+        )
+
+        self.btn_import.configure(
+            state="normal"
+        )
+
+        self.btn_export.configure(
+            state="normal"
+        )
+
+
+    def on_import_failed(self, error):
+
+        self.btn_start.configure(
+            state="normal"
+        )
+
+        self.btn_import.configure(
+            state="normal"
+        )
+
+        self.btn_export.configure(
+            state="disabled"
+        )
