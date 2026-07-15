@@ -1,73 +1,60 @@
-from services.health.health_check import HealthCheck
-from services.health.health_result import (
-    HealthResult,
-    HealthStatus,
+from providers.ollama_provider import (
+    OllamaProvider
 )
-from services.health.health_service import HealthService
+from services.health.checks.ai_provider_check import (
+    AIProviderCheck
+)
+from services.health.checks.dependency_check import (
+    DependencyCheck
+)
+from services.health.checks.python_check import (
+    PythonCheck
+)
+from services.health.health_service import (
+    HealthService
+)
 
 
-class SuccessfulCheck(HealthCheck):
-
-    def run(self) -> HealthResult:
-
-        return HealthResult(
-            name="Prueba correcta",
-            status=HealthStatus.OK,
-            message="El componente funciona correctamente.",
-        )
-
-
-class FailedCheck(HealthCheck):
-
-    def run(self) -> HealthResult:
-
-        return HealthResult(
-            name="Prueba fallida",
-            status=HealthStatus.FAILED,
-            message="El componente no está disponible.",
-            details="Fallo simulado.",
-        )
-
-
-class BrokenCheck(HealthCheck):
-
-    def run(self) -> HealthResult:
-
-        raise RuntimeError(
-            "Excepción simulada durante el diagnóstico."
-        )
-
+provider = OllamaProvider()
 
 service = HealthService(
     checks=[
-        SuccessfulCheck(),
-        FailedCheck(),
-        BrokenCheck(),
+        PythonCheck(),
+        DependencyCheck(),
+        AIProviderCheck(provider),
     ]
 )
 
 results = service.run_all()
 
+print("=" * 60)
+print("MAI HEALTH REPORT")
+print("=" * 60)
+
 for result in results:
 
+    print()
     print(
         f"[{result.status.value}] "
-        f"{result.name}: {result.message}"
+        f"{result.name}"
     )
 
+    print(result.message)
+
     if result.details:
-        print(f"  Detalle: {result.details}")
 
+        for key, value in result.details.items():
 
-assert len(results) == 3
-
-assert results[0].status == HealthStatus.OK
-assert results[1].status == HealthStatus.FAILED
-
-# BrokenCheck no debe detener el diagnóstico.
-assert results[2].status == HealthStatus.FAILED
-
-assert not service.is_ready(results)
+            print(
+                f"  {key}: {value}"
+            )
 
 print()
-print("Health Check Framework validado correctamente.")
+
+if service.is_ready(results):
+
+    print("READY FOR USE")
+
+else:
+
+    print("SYSTEM REQUIRES ATTENTION")

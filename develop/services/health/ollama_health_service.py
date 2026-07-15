@@ -1,47 +1,35 @@
 """
 ollama_health_service.py
+
+Adaptador de compatibilidad para código antiguo.
+
+El diagnóstico oficial se encuentra ahora
+en OllamaProvider.health().
 """
 
-import requests
+from providers.ollama_provider import OllamaProvider
 
 
 class OllamaHealthService:
 
-    def __init__(self):
+    def __init__(self, provider=None):
 
-        self.url = "http://localhost:11434/api/tags"
+        self.provider = (
+            provider or OllamaProvider()
+        )
 
     def check(self):
 
-        try:
+        health = self.provider.health()
 
-            response = requests.get(
-                self.url,
-                timeout=3
-            )
-
-            response.raise_for_status()
-
-            data = response.json()
-
-            models = []
-
-            for model in data.get("models", []):
-
-                models.append(
-                    model["name"]
-                )
-
-            return {
-                "available": True,
-                "models": models,
-                "message": "Ollama disponible."
-            }
-
-        except Exception as ex:
-
-            return {
-                "available": False,
-                "models": [],
-                "message": str(ex)
-            }
+        return {
+            "available": health.connected,
+            "model_found": health.model_found,
+            "model": health.model,
+            "models": health.available_models,
+            "response_time_ms": (
+                health.response_time_ms
+            ),
+            "message": health.message,
+            "error": health.error,
+        }

@@ -1,0 +1,4 @@
+OLLAMA_URL = "http://localhost:11434"
+OLLAMA_MODEL = "qwen2.5:3b"
+REQUEST_TIMEOUT = 120
+HEALTH_TIMEOUT = 3
