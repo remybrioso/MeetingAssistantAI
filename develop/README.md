@@ -14,3 +14,8 @@ Funcionalidades:
 ✔ Procesamiento en segundo plano
 ✔ Métricas
 ✔ GUI desacoplada mediante EventBus
+## Ejecutar desde el código fuente
+
+Los desarrolladores y evaluadores pueden consultar la guía completa:
+
+[Instalación desde el repositorio](docs/INSTALLATION_FROM_SOURCE.md)
