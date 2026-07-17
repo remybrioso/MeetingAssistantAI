@@ -10,6 +10,15 @@ from services.logger_service import LoggerService
 from services.audio_capture_service import AudioCaptureService
 from services.configuration_service import ConfigurationService
 from services.meeting_timer import MeetingTimer
+from services.setup.capabilities.capability_runner import (
+    CapabilityRunner,
+)
+from services.setup.default_capability_registry import (
+    build_default_capability_registry,
+)
+from services.setup.wizard.setup_wizard_service import (
+    SetupWizardService,
+)
 
 
 class DependencyContainer:
@@ -38,6 +47,22 @@ container.register("logger", LoggerService())
 
 configuration = ConfigurationService()
 
+capability_registry = (
+    build_default_capability_registry(
+        configuration=configuration
+    )
+)
+
+capability_runner = CapabilityRunner(
+    event_bus=container.get("event_bus")
+)
+
+setup_wizard_service = SetupWizardService(
+    capability_registry=capability_registry,
+    capability_runner=capability_runner,
+    event_bus=container.get("event_bus"),
+)
+
 
 # Servicios de negocio
 container.register(
@@ -52,4 +77,18 @@ container.register(
 container.register(
     "meeting_timer",
     MeetingTimer()
+)
+container.register(
+    "capability_registry",
+    capability_registry,
+)
+
+container.register(
+    "capability_runner",
+    capability_runner,
+)
+
+container.register(
+    "setup_wizard_service",
+    setup_wizard_service,
 )
