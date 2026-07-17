@@ -29,6 +29,15 @@ class AppState:
 
     # Archivo actual
     current_file: str | None = None
+    
+        # Estado del asistente de configuración
+    setup_wizard_status: str = "pending"
+    # pending | running | ready | attention | blocked | failed
+
+    setup_wizard_completed: bool = False
+
+    # Indica si el usuario puede acceder a la aplicación.
+    application_ready: bool = False
 
     # Observadores (UI o servicios)
     _listeners: list[Callable[[str, Any], None]] = field(default_factory=list, repr=False)
