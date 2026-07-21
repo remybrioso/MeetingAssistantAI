@@ -16,7 +16,7 @@ if not meeting_dirs:
 
 latest = meeting_dirs[0]
 
-transcript_file = latest / "transcript.json"
+transcript_file = latest / ".mai" / "transcript.json"
 
 if not transcript_file.exists():
     raise FileNotFoundError(

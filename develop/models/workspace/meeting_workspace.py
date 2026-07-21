@@ -5,7 +5,7 @@ Representa la estructura física de una reunión.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 import json
 
@@ -46,7 +46,7 @@ class MeetingWorkspace:
 
         data = {
             "version": self.version,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "structure": {
                 "audio": str(self.audio_dir),
                 "documents": str(self.documents_dir),

@@ -1,21 +1,21 @@
-Estado actual del proyecto
+# MAI — MSRE-010 Sprint 10.1
 
-Versión:
-v0.8.0-alpha.1
+Recovery Experience domain models for Meeting Assistant AI.
 
-Estado:
-Plataforma estable.
+## Install development dependency
 
-Funcionalidades:
+```bash
+python -m pip install -r requirements-dev.txt
+```
 
-✔ Grabación dual
-✔ Transcripción local
-✔ Persistencia
-✔ Procesamiento en segundo plano
-✔ Métricas
-✔ GUI desacoplada mediante EventBus
-## Ejecutar desde el código fuente
+## Run tests
 
-Los desarrolladores y evaluadores pueden consultar la guía completa:
+```bash
+python -m pytest
+```
 
-[Instalación desde el repositorio](docs/INSTALLATION_FROM_SOURCE.md)
+## Integration
+
+Copy `application/recovery` into the MAI repository while preserving the
+package structure. No existing MAI module must import UI or infrastructure
+into these domain models.

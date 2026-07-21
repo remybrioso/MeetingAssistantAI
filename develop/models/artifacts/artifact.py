@@ -5,7 +5,7 @@ Clase base para todos los artefactos generados por IA.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
 
 @dataclass
@@ -20,7 +20,7 @@ class Artifact:
     prompt_version: str
 
     created_at: datetime = field(
-        default_factory=datetime.utcnow
+        default_factory=lambda: datetime.now(UTC)
     )
 
     def as_dict(self):
