@@ -5,41 +5,31 @@ Responsable exclusivamente del ciclo de vida
 de una reunión.
 """
 
-from application.dependency_container import container
-
-from services.meeting_finalization_service import (
-    MeetingFinalizationService,
-)
-
-from services.task_runner import TaskRunner
-
 
 class MeetingController:
     """
     Controlador del ciclo de vida de una reunión.
     """
 
-    def __init__(self):
-
-        self.state = container.get("app_state")
-        self.bus = container.get("event_bus")
-        self.logger = container.get("logger")
-
-        self.audio_capture_service = container.get(
-            "audio_capture_service"
-        )
-
-        self.meeting_timer = container.get(
-            "meeting_timer"
-        )
-
+    def __init__(
+        self,
+        state,
+        bus,
+        logger,
+        audio_capture_service,
+        meeting_timer,
+        meeting_finalization_service,
+        task_runner,
+    ):
+        self.state = state
+        self.bus = bus
+        self.logger = logger
+        self.audio_capture_service = audio_capture_service
+        self.meeting_timer = meeting_timer
         self.meeting_finalization_service = (
-            MeetingFinalizationService(
-                self.bus
-            )
+            meeting_finalization_service
         )
-
-        self.task_runner = TaskRunner()
+        self.task_runner = task_runner
 
     def start(self):
 
@@ -49,7 +39,8 @@ class MeetingController:
 
             self.bus.emit(
                 "activity",
-                "❌ MAI todavía no está preparado para iniciar una reunión.",
+                "❌ MAI todavía no está preparado "
+                "para iniciar una reunión.",
             )
 
             return

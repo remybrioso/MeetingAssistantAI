@@ -8,24 +8,26 @@ grabaciones externas de reuniones.
 from pathlib import Path
 from tkinter import filedialog
 
-from application.dependency_container import container
-
 
 class ImportController:
     """
     Controlador del flujo de importación de grabaciones.
     """
 
-    def __init__(self):
-
-        self.state = container.get("app_state")
-        self.bus = container.get("event_bus")
-        self.logger = container.get("logger")
-
-        self.task_runner = container.get("task_runner")
-
-        self.imported_meeting_service = container.get(
-            "imported_meeting_service"
+    def __init__(
+        self,
+        state,
+        bus,
+        logger,
+        task_runner,
+        imported_meeting_service,
+    ):
+        self.state = state
+        self.bus = bus
+        self.logger = logger
+        self.task_runner = task_runner
+        self.imported_meeting_service = (
+            imported_meeting_service
         )
 
     def import_recording(self):

@@ -28,6 +28,18 @@ from services.task_runner import TaskRunner
 from services.transcript_service import TranscriptService
 from services.validators.summary_validator import SummaryValidator
 from services.workspace_service import WorkspaceService
+from application.controllers.import_controller import (
+    ImportController,
+)
+from application.controllers.meeting_controller import (
+    MeetingController,
+)
+from services.meeting_finalization_service import (
+    MeetingFinalizationService,
+)
+from application.controllers.setup_controller import (
+    SetupController,
+)
 
 
 class DependencyContainer:
@@ -69,10 +81,20 @@ setup_wizard_service = SetupWizardService(
     event_bus=event_bus,
 )
 
+
 # Servicios de reunión e importación
-audio_capture_service = AudioCaptureService(configuration)
+audio_capture_service = AudioCaptureService(
+    configuration
+)
+
 meeting_timer = MeetingTimer()
 task_runner = TaskRunner()
+
+meeting_finalization_service = (
+    MeetingFinalizationService(
+        event_bus
+    )
+)
 
 workspace_service = WorkspaceService()
 transcript_service = TranscriptService()
@@ -90,6 +112,36 @@ imported_meeting_service = ImportedMeetingService(
     meeting_pipeline=meeting_pipeline,
 )
 
+# Controladores
+meeting_controller = MeetingController(
+    state=app_state,
+    bus=event_bus,
+    logger=logger,
+    audio_capture_service=audio_capture_service,
+    meeting_timer=meeting_timer,
+    meeting_finalization_service=(
+        meeting_finalization_service
+    ),
+    task_runner=task_runner,
+)
+
+import_controller = ImportController(
+    state=app_state,
+    bus=event_bus,
+    logger=logger,
+    task_runner=task_runner,
+    imported_meeting_service=(
+        imported_meeting_service
+    ),
+)
+
+setup_controller = SetupController(
+    state=app_state,
+    bus=event_bus,
+    logger=logger,
+    task_runner=task_runner,
+    setup_wizard_service=setup_wizard_service,
+)
 # Registro de servicios
 container.register("event_bus", event_bus)
 container.register("app_state", app_state)
@@ -105,3 +157,23 @@ container.register("workspace_service", workspace_service)
 container.register("transcript_service", transcript_service)
 container.register("meeting_pipeline", meeting_pipeline)
 container.register("imported_meeting_service", imported_meeting_service)
+container.register("meeting_finalization_service", meeting_finalization_service)
+container.register(
+    "meeting_finalization_service",
+    meeting_finalization_service,
+)
+
+container.register(
+    "meeting_controller",
+    meeting_controller,
+)
+
+container.register(
+    "import_controller",
+    import_controller,
+)
+
+container.register(
+    "setup_controller",
+    setup_controller,
+)
