@@ -7,18 +7,8 @@ Controlador principal de la aplicación.
 from application.dependency_container import container
 from application.controllers.meeting_controller import MeetingController
 from services.meeting_finalization_service import MeetingFinalizationService
-from services.task_runner import TaskRunner
-from pathlib import Path
-from tkinter import filedialog
+from application.controllers.import_controller import ImportController
 
-from services.artifact_storage_service import ArtifactStorageService
-from services.imported_meeting_service import ImportedMeetingService
-from services.meeting_pipeline_service import MeetingPipelineService
-from services.summary_markdown_exporter import SummaryMarkdownExporter
-from services.summary_service import SummaryService
-from services.transcript_service import TranscriptService
-from services.validators.summary_validator import SummaryValidator
-from services.workspace_service import WorkspaceService
 
 
 class AppController:
@@ -32,17 +22,11 @@ class AppController:
         self.audio_capture_service = container.get("audio_capture_service")
         self.meeting_timer = container.get("meeting_timer")
         self.meeting_finalization_service = MeetingFinalizationService(self.bus)
-        self.task_runner = TaskRunner()
-        self.imported_meeting_service = ImportedMeetingService(
-            workspace_service=WorkspaceService(),
-            transcript_service=TranscriptService(),
-            meeting_pipeline=MeetingPipelineService(
-                summary_service=SummaryService(),
-                validator=SummaryValidator(),
-                storage_service=ArtifactStorageService(),
-                markdown_exporter=SummaryMarkdownExporter()
-            )
+        self.import_controller = ImportController()
+        self.task_runner = container.get(
+            "task_runner"
         )
+
         self.setup_wizard_service = container.get(
             "setup_wizard_service"
         )
@@ -60,100 +44,11 @@ class AppController:
         self.meeting_controller.stop()
 
     def import_recording(self):
-        
-        if not self.state.get(
-            "application_ready"
-        ):
 
-            self.bus.emit(
-                "activity",
-                "❌ Complete primero la "
-                "configuración inicial de MAI.",
-            )
-
-            return
+        self.import_controller.import_recording()
 
 
-        if self.state.get("meeting_active"):
-            self.bus.emit(
-                "activity",
-                "❌ Finalice la reunión actual antes de importar un archivo."
-            )
-            return
 
-        selected_file = filedialog.askopenfilename(
-            title="Seleccionar grabación WAV",
-            filetypes=[
-                ("Archivos WAV", "*.wav")
-            ]
-        )
-
-        if not selected_file:
-            return
-
-        source_file = Path(selected_file)
-
-        self.logger.info(
-            f"Importación iniciada: {source_file}"
-        )
-
-        self.bus.emit(
-            "meeting_import_started",
-            source_file.name
-        )
-
-        self.bus.emit(
-            "activity",
-            f"Importando grabación: {source_file.name}"
-        )
-
-        self.task_runner.run(
-            self._process_imported_recording,
-            source_file
-        )
-
-
-    def _process_imported_recording(
-        self,
-        source_file: Path
-    ):
-
-        try:
-            session = (
-                self.imported_meeting_service
-                .import_wav(source_file)
-            )
-
-            self.logger.info(
-                "Grabación importada correctamente: "
-                f"{session.session_dir}"
-            )
-
-            self.bus.emit(
-                "meeting_import_completed",
-                session
-            )
-
-            self.bus.emit(
-                "activity",
-                "✅ Grabación importada y procesada correctamente."
-            )
-
-        except Exception as ex:
-
-            self.logger.error(
-                f"Error importando grabación: {ex}"
-            )
-
-            self.bus.emit(
-                "meeting_import_failed",
-                str(ex)
-            )
-
-            self.bus.emit(
-                "activity",
-                f"❌ Error importando grabación: {ex}"
-            )
 
     def start_setup_wizard(self) -> None:
         """
