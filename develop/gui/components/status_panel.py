@@ -8,11 +8,11 @@ from gui.theme.colors import (
     BORDER,
 )
 from gui.theme.fonts import SUBTITLE, NORMAL
-from application.dependency_container import container
+
 
 class StatusPanel(ctk.CTkFrame):
 
-    def __init__(self, master):
+    def __init__(self, master, ui_events):
         super().__init__(
             master,
             fg_color=SURFACE,
@@ -22,13 +22,13 @@ class StatusPanel(ctk.CTkFrame):
         )
 
         self._build_ui()
+        self.ui_events = ui_events
         
-        self.bus = container.get("event_bus")
 
-        self.bus.subscribe("meeting_started", self.on_meeting_started)
-        self.bus.subscribe("meeting_finished", self.on_meeting_finished)
+        self.ui_events.subscribe("meeting_started", self.on_meeting_started)
+        self.ui_events.subscribe("meeting_finished", self.on_meeting_finished)
 
-        self.bus.subscribe(
+        self.ui_events.subscribe(
             "timer_tick",
             self.on_timer_tick
         )
@@ -102,7 +102,7 @@ class StatusPanel(ctk.CTkFrame):
             controls[service].configure(text_color=color)
 
     def on_timer_tick(self, value):
-        self.after(0, lambda: self.timer_value.configure(text=value))
+        self.timer_value.configure(text=value)
 
     def on_meeting_started(self):
         self.rec_label.configure(text="🔴 REC")

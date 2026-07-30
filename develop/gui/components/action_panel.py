@@ -1,6 +1,5 @@
 import customtkinter as ctk
 
-from application.dependency_container import container
 
 from gui.theme.colors import SURFACE, BORDER
 from gui.theme.fonts import SUBTITLE
@@ -8,7 +7,7 @@ from gui.theme.fonts import SUBTITLE
 
 class ActionPanel(ctk.CTkFrame):
 
-    def __init__(self, master, controller):
+    def __init__(self, master, controller, ui_events):
         super().__init__(
             master,
             fg_color=SURFACE,
@@ -18,7 +17,8 @@ class ActionPanel(ctk.CTkFrame):
         )
 
         self.controller = controller
-        self.bus = container.get("event_bus")
+        self.ui_events = ui_events
+
 
         self._build_ui()
         self._bind_events()
@@ -67,7 +67,7 @@ class ActionPanel(ctk.CTkFrame):
             command=self.controller.stop_meeting
         )
         self.btn_stop.pack(side="left", padx=8)
-        
+
         self.btn_import = ctk.CTkButton(
             buttons,
             text="📂 Importar grabación",
@@ -90,21 +90,21 @@ class ActionPanel(ctk.CTkFrame):
 
     def _bind_events(self):
 
-        self.bus.subscribe("meeting_started", self.on_meeting_started)
-        self.bus.subscribe("meeting_paused", self.on_meeting_paused)
-        self.bus.subscribe("meeting_resumed", self.on_meeting_resumed)
-        self.bus.subscribe("meeting_finished", self.on_meeting_finished)
-        self.bus.subscribe(
+        self.ui_events.subscribe("meeting_started", self.on_meeting_started)
+        self.ui_events.subscribe("meeting_paused", self.on_meeting_paused)
+        self.ui_events.subscribe("meeting_resumed", self.on_meeting_resumed)
+        self.ui_events.subscribe("meeting_finished", self.on_meeting_finished)
+        self.ui_events.subscribe(
             "meeting_import_started",
             self.on_import_started
         )
 
-        self.bus.subscribe(
+        self.ui_events.subscribe(
             "meeting_import_completed",
             self.on_import_completed
         )
 
-        self.bus.subscribe(
+        self.ui_events.subscribe(
             "meeting_import_failed",
             self.on_import_failed
         )
