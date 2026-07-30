@@ -9,6 +9,7 @@ import time
 
 import soundfile as sf
 
+from models.audio_source import AudioSource
 from models.processing_metrics import ProcessingMetrics
 from services.artifact_storage_service import ArtifactStorageService
 from services.meeting_pipeline_service import MeetingPipelineService
@@ -68,10 +69,20 @@ class MeetingFinalizationService:
 
             transcription_start = time.time()
 
+            audio_sources = self._build_audio_sources(
+                recording_session
+            )
+
+            if not audio_sources:
+                raise FileNotFoundError(
+                    "No audio sources were found "
+                    "for transcription."
+                )
+
             transcript = (
                 self.transcript_service
-                .transcribe_microphone(
-                    recording_session
+                .transcribe_sources(
+                    audio_sources
                 )
             )
 
@@ -93,8 +104,9 @@ class MeetingFinalizationService:
 
             save_time = time.time() - save_start
 
-            audio_info = sf.info(
-                str(recording_session.mic_file)
+            audio_duration = self._get_meeting_duration(
+                recording_session,
+                audio_sources
             )
 
             words_count = sum(
@@ -103,7 +115,7 @@ class MeetingFinalizationService:
             )
 
             metrics = ProcessingMetrics(
-                audio_duration=audio_info.duration,
+                audio_duration=audio_duration,
                 transcription_time=transcription_time,
                 save_time=save_time,
                 total_time=time.time() - start_time,
@@ -138,3 +150,64 @@ class MeetingFinalizationService:
                 )
 
             raise
+
+    @staticmethod
+    def _build_audio_sources(
+        recording_session,
+    ) -> list[AudioSource]:
+        """
+        Construye las fuentes disponibles para transcripción.
+
+        Una pista ausente no impide procesar las demás.
+        """
+
+        configured_sources = (
+            (
+                recording_session.mic_file,
+                "LOCAL",
+            ),
+            (
+                recording_session.system_file,
+                "REMOTE",
+            ),
+        )
+
+        return [
+            AudioSource(
+                file=audio_file,
+                speaker=speaker,
+            )
+            for audio_file, speaker in configured_sources
+            if audio_file is not None
+            and audio_file.is_file()
+        ]
+
+    @staticmethod
+    def _get_meeting_duration(
+        recording_session,
+        audio_sources: list[AudioSource],
+    ) -> float:
+        """
+        Obtiene la duración completa de la reunión.
+
+        Utiliza meeting.wav cuando está disponible. Como
+        respaldo, toma la mayor duración entre las pistas
+        individuales, ya que fueron grabadas simultáneamente.
+        """
+
+        meeting_file = recording_session.meeting_file
+
+        if (
+            meeting_file is not None
+            and meeting_file.is_file()
+        ):
+            return sf.info(
+                str(meeting_file)
+            ).duration
+
+        return max(
+            sf.info(
+                str(source.file)
+            ).duration
+            for source in audio_sources
+        )
