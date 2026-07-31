@@ -4,12 +4,13 @@ meeting_pipeline_service.py
 Orquestador del Knowledge Pipeline.
 """
 
-import json
-
 from exceptions.insufficient_transcript_evidence_error import (
     InsufficientTranscriptEvidenceError,
 )
 from services.transcript_analyzer import TranscriptAnalyzer
+from services.transcript_prompt_formatter import (
+    TranscriptPromptFormatter,
+)
 from services.transcript_storage_service import (
     TranscriptStorageService,
 )
@@ -33,6 +34,7 @@ class MeetingPipelineService:
         transcript_storage_service=None,
         transcript_analyzer=None,
         transcript_validator=None,
+        transcript_prompt_formatter=None,
         summary_validator=None,
     ):
         self.summary_service = summary_service
@@ -50,6 +52,11 @@ class MeetingPipelineService:
         self.transcript_validator = (
             transcript_validator
             or TranscriptValidator()
+        )
+
+        self.transcript_prompt_formatter = (
+            transcript_prompt_formatter
+            or TranscriptPromptFormatter()
         )
 
         # Compatibilidad temporal con:
@@ -77,7 +84,7 @@ class MeetingPipelineService:
 
         Raises:
             InsufficientTranscriptEvidenceError:
-                Si el transcript no contiene evidencia
+                Si el Transcript no contiene evidencia
                 suficiente.
 
             ValueError:
@@ -107,7 +114,7 @@ class MeetingPipelineService:
             )
 
         transcript_text = (
-            self._serialize_transcript(
+            self.transcript_prompt_formatter.format(
                 transcript
             )
         )
@@ -139,24 +146,6 @@ class MeetingPipelineService:
         )
 
         return summary
-
-    @staticmethod
-    def _serialize_transcript(
-        transcript,
-    ) -> str:
-        """
-        Convierte el Transcript en la representación textual
-        enviada al SummaryService.
-
-        Esta responsabilidad será extraída a un componente
-        especializado en una tarea posterior.
-        """
-
-        return json.dumps(
-            transcript.as_dict(),
-            ensure_ascii=False,
-            indent=4,
-        )
 
     def _validate_dependencies(self) -> None:
         """

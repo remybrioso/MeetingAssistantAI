@@ -7,14 +7,12 @@ Controlador principal de la aplicación.
 from application.dependency_container import container
 
 
-
-
 class AppController:
 
     def __init__(self):
 
         self.state = container.get(
-        "app_state"
+            "app_state"
         )
 
         self.bus = container.get(
@@ -41,139 +39,37 @@ class AppController:
             "import_controller"
         )
 
-    def start_meeting(self):
+    def start_meeting(self) -> None:
         self.meeting_controller.start()
 
-    def pause_meeting(self):
+    def pause_meeting(self) -> None:
         self.meeting_controller.pause()
 
-    def resume_meeting(self):
+    def resume_meeting(self) -> None:
         self.meeting_controller.resume()
 
-    def stop_meeting(self):
+    def stop_meeting(self) -> None:
         self.meeting_controller.stop()
 
-    def import_recording(self):
-
+    def import_recording(self) -> None:
         self.import_controller.import_recording()
-
-
-
 
     def start_setup_wizard(self) -> None:
         self.setup_controller.start()
 
-        """
-        Ejecuta el diagnóstico inicial fuera del hilo
-        gráfico de CustomTkinter.
-        """
-
-        if self.setup_wizard_service is None:
-
-            self.bus.emit(
-                "setup_wizard_ui_failed",
-                "SetupWizardService no está registrado.",
-            )
-
-            return
-
-        if self.state.get(
-            "setup_wizard_status"
-        ) == "running":
-
-            return
-
-        self.state.set(
-            "setup_wizard_status",
-            "running",
-        )
-
-        self.state.set(
-            "setup_wizard_completed",
-            False,
-        )
-
-        self.state.set(
-            "application_ready",
-            False,
-        )
-
-        self.bus.emit(
-            "setup_wizard_ui_started"
-        )
-
-        self.task_runner.run(
-            self._execute_setup_wizard
-        )
-
     def retry_setup_wizard(self) -> None:
         self.setup_controller.retry()
-
-        """
-        Repite el diagnóstico completo.
-        """
-
-        self.start_setup_wizard()
 
     def accept_setup_wizard_result(
         self,
         result,
     ) -> None:
         self.setup_controller.accept_result(
-        result
-    )
-
-        """
-        Actualiza AppState desde el hilo gráfico cuando
-        MainWindow recibe el resultado.
-        """
-
-        status = result.status.value.lower()
-
-        self.state.set(
-            "setup_wizard_status",
-            status,
-        )
-
-        self.state.set(
-            "setup_wizard_completed",
-            True,
-        )
-
-        self.state.set(
-            "application_ready",
-            result.can_continue,
+            result
         )
 
     def continue_with_attention(self) -> bool:
         return (
-                self.setup_controller
-                .continue_with_attention()
-            )
-
-        """
-        Permite entrar a MAI cuando el diagnóstico terminó
-        con elementos no bloqueantes.
-        """
-
-        status = self.state.get(
-            "setup_wizard_status"
+            self.setup_controller
+            .continue_with_attention()
         )
-
-        if status not in {
-            "ready",
-            "attention",
-        }:
-
-            return False
-
-        self.state.set(
-            "application_ready",
-            True,
-        )
-
-        self.bus.emit(
-            "setup_wizard_continue_requested"
-        )
-
-        return True

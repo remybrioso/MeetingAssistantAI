@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -6,6 +5,7 @@ from models.transcript import Segment, Transcript
 from services.meeting_pipeline_service import (
     MeetingPipelineService,
 )
+from models.prompt import Prompt
 
 
 class FakeTranscriptStorageService:
@@ -47,17 +47,37 @@ class FakeTranscriptValidator:
         return True, []
 
 
+class FakeTranscriptPromptFormatter:
+
+    def __init__(self):
+        self.received_transcript = None
+
+        self.prompt = Prompt(
+            content=(
+                "Prompt completamente construido."
+            ),
+            version="summary_v1",
+        )
+
+    def format(
+        self,
+        transcript,
+    ):
+        self.received_transcript = transcript
+        return self.prompt
+
+
 class FakeSummaryService:
 
     def __init__(self):
-        self.received_text = None
+        self.received_prompt = None
         self.summary = object()
 
     def generate(
         self,
-        transcript_text,
+        prompt,
     ):
-        self.received_text = transcript_text
+        self.received_prompt = prompt
         return self.summary
 
 
@@ -129,7 +149,7 @@ def test_meeting_pipeline_service_can_be_created() -> None:
     assert pipeline is not None
 
 
-def test_pipeline_sends_loaded_transcript_text_to_summary_service(
+def test_pipeline_uses_formatter_before_summary_service(
     tmp_path: Path,
 ) -> None:
     transcript = build_transcript()
@@ -142,6 +162,11 @@ def test_pipeline_sends_loaded_transcript_text_to_summary_service(
 
     transcript_analyzer = FakeTranscriptAnalyzer()
     transcript_validator = FakeTranscriptValidator()
+
+    transcript_formatter = (
+        FakeTranscriptPromptFormatter()
+    )
+
     summary_service = FakeSummaryService()
     summary_validator = FakeSummaryValidator()
     artifact_storage = FakeArtifactStorageService()
@@ -170,6 +195,9 @@ def test_pipeline_sends_loaded_transcript_text_to_summary_service(
         ),
         transcript_analyzer=transcript_analyzer,
         transcript_validator=transcript_validator,
+        transcript_prompt_formatter=(
+            transcript_formatter
+        ),
         summary_validator=summary_validator,
         storage_service=artifact_storage,
         markdown_exporter=markdown_exporter,
@@ -177,10 +205,6 @@ def test_pipeline_sends_loaded_transcript_text_to_summary_service(
 
     result = pipeline.process(
         recording_session
-    )
-
-    serialized_transcript = json.loads(
-        summary_service.received_text
     )
 
     assert result is summary_service.summary
@@ -196,8 +220,13 @@ def test_pipeline_sends_loaded_transcript_text_to_summary_service(
     )
 
     assert (
-        serialized_transcript
-        == transcript.as_dict()
+        transcript_formatter.received_transcript
+        is transcript
+    )
+
+    assert (
+    summary_service.received_prompt
+    is transcript_formatter.prompt
     )
 
     assert (

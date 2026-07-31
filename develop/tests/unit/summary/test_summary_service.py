@@ -1,7 +1,6 @@
-from pathlib import Path
-
 import pytest
 
+from models.prompt import Prompt
 from services.summary_service import SummaryService
 
 
@@ -49,47 +48,32 @@ class FakeResponseParser:
         return self.summary
 
 
-def test_summary_service_generates_from_text(
-    tmp_path: Path,
-) -> None:
-    prompt_file = (
-        tmp_path / "summary_prompt.md"
-    )
-
-    prompt_file.write_text(
-        (
-            "Genera una minuta con la siguiente "
-            "transcripción:\n\n"
-            "{{TRANSCRIPT}}"
-        ),
-        encoding="utf-8",
-    )
-
+def test_summary_service_generates_from_prompt() -> None:
     provider = FakeProvider()
     response_parser = FakeResponseParser()
 
     service = SummaryService(
         provider=provider,
         response_parser=response_parser,
-        prompt_file=prompt_file,
     )
 
-    transcript_text = (
-        '{"segments": [{"text": "Contenido de prueba"}]}'
+    prompt = Prompt(
+        content=(
+            "Genera una minuta a partir de esta "
+            "transcripción."
+        ),
+        version="summary_v1",
     )
 
     result = service.generate(
-        transcript_text
+        prompt
     )
 
     assert result is response_parser.summary
 
-    assert transcript_text in (
+    assert (
         provider.received_prompt
-    )
-
-    assert "{{TRANSCRIPT}}" not in (
-        provider.received_prompt
+        == prompt.content
     )
 
     assert (
@@ -113,41 +97,40 @@ def test_summary_service_generates_from_text(
     )
 
 
-def test_summary_service_rejects_empty_text(
-    tmp_path: Path,
-) -> None:
+def test_summary_service_uses_prompt_version() -> None:
+    provider = FakeProvider()
+    response_parser = FakeResponseParser()
+
     service = SummaryService(
-        provider=FakeProvider(),
-        response_parser=FakeResponseParser(),
-        prompt_file=(
-            tmp_path / "unused.md"
-        ),
+        provider=provider,
+        response_parser=response_parser,
     )
 
-    with pytest.raises(
-        ValueError,
-        match="no puede estar vacío",
-    ):
-        service.generate(
-            "   "
-        )
+    prompt = Prompt(
+        content="Prompt de prueba.",
+        version="executive_summary_v2",
+    )
+
+    service.generate(
+        prompt
+    )
+
+    assert (
+        response_parser.received_prompt_version
+        == "executive_summary_v2"
+    )
 
 
-def test_summary_service_rejects_non_string_input(
-    tmp_path: Path,
-) -> None:
+def test_summary_service_rejects_invalid_prompt() -> None:
     service = SummaryService(
         provider=FakeProvider(),
         response_parser=FakeResponseParser(),
-        prompt_file=(
-            tmp_path / "unused.md"
-        ),
     )
 
     with pytest.raises(
         TypeError,
-        match="debe ser una cadena",
+        match="debe ser una instancia de Prompt",
     ):
         service.generate(
-            None
+            "Esto no es un Prompt."
         )

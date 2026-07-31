@@ -46,6 +46,9 @@ from services.summary_markdown_exporter import (
 from services.summary_service import SummaryService
 from services.task_runner import TaskRunner
 from services.transcript_analyzer import TranscriptAnalyzer
+from services.transcript_prompt_formatter import (
+    TranscriptPromptFormatter,
+)
 from services.transcript_service import TranscriptService
 from services.transcript_storage_service import (
     TranscriptStorageService,
@@ -119,6 +122,7 @@ transcript_service = TranscriptService()
 transcript_storage_service = TranscriptStorageService()
 transcript_analyzer = TranscriptAnalyzer()
 transcript_validator = TranscriptValidator()
+transcript_prompt_formatter = TranscriptPromptFormatter()
 
 
 # Servicios de resumen
@@ -136,6 +140,9 @@ meeting_pipeline = MeetingPipelineService(
     ),
     transcript_analyzer=transcript_analyzer,
     transcript_validator=transcript_validator,
+    transcript_prompt_formatter=(
+        transcript_prompt_formatter
+    ),
     summary_validator=summary_validator,
     storage_service=artifact_storage_service,
     markdown_exporter=summary_markdown_exporter,
@@ -262,6 +269,11 @@ container.register(
 container.register(
     "transcript_validator",
     transcript_validator,
+)
+
+container.register(
+    "transcript_prompt_formatter",
+    transcript_prompt_formatter,
 )
 
 container.register(
