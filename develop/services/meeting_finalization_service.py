@@ -11,67 +11,56 @@ import soundfile as sf
 
 from models.audio_source import AudioSource
 from models.processing_metrics import ProcessingMetrics
-from services.artifact_storage_service import ArtifactStorageService
-from services.meeting_pipeline_service import MeetingPipelineService
-from services.summary_markdown_exporter import SummaryMarkdownExporter
-from services.summary_service import SummaryService
-from services.transcript_service import TranscriptService
-from services.transcript_storage_service import TranscriptStorageService
-from services.validators.summary_validator import SummaryValidator
-from services.workspace_service import WorkspaceService
-
 
 class MeetingFinalizationService:
 
     def __init__(
         self,
-        transcript_service=None,
-        transcript_storage_service=None,
-        workspace_service=None,
-        meeting_pipeline=None,
+        transcript_service,
+        transcript_storage_service,
+        workspace_service,
+        meeting_pipeline,
         bus=None,
     ):
         """
-        Inicializa el servicio de finalización.
+        Inicializa el servicio con todas sus dependencias.
 
-        Durante la transición hacia una composición
-        completamente centralizada, las dependencias son
-        opcionales para mantener compatibilidad con las
-        pruebas existentes.
-
-        En TASK-054 pasarán a ser obligatorias.
+        La composición de objetos pertenece exclusivamente
+        al DependencyContainer.
         """
 
         self.bus = bus
+        self.transcript_service = transcript_service
+        self.storage_service = transcript_storage_service
+        self.workspace_service = workspace_service
+        self.meeting_pipeline = meeting_pipeline
 
-        self.transcript_service = (
-            transcript_service
-            if transcript_service is not None
-            else TranscriptService()
-        )
+        self._validate_dependencies()
 
-        self.storage_service = (
-            transcript_storage_service
-            if transcript_storage_service is not None
-            else TranscriptStorageService()
-        )
+    def _validate_dependencies(self) -> None:
+        """
+        Verifica que las dependencias obligatorias existan.
+        """
 
-        self.workspace_service = (
-            workspace_service
-            if workspace_service is not None
-            else WorkspaceService()
-        )
+        dependencies = {
+                "transcript_service": self.transcript_service,
+                "transcript_storage_service": self.storage_service,
+                "workspace_service": self.workspace_service,
+                "meeting_pipeline": self.meeting_pipeline,
+            }
 
-        self.meeting_pipeline = (
-            meeting_pipeline
-            if meeting_pipeline is not None
-            else MeetingPipelineService(
-                summary_service=SummaryService(),
-                validator=SummaryValidator(),
-                storage_service=ArtifactStorageService(),
-                markdown_exporter=SummaryMarkdownExporter(),
-            )
-        )
+        missing = [
+                name
+                for name, service in dependencies.items()
+                if service is None
+            ]
+
+        if missing:
+                raise ValueError(
+                    "Faltan dependencias obligatorias en "
+                    "MeetingFinalizationService: "
+                    + ", ".join(missing)
+                )
 
     def finalize(self, recording_session):
 

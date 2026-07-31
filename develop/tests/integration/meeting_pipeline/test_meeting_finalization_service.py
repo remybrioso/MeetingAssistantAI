@@ -7,6 +7,28 @@ from services.meeting_finalization_service import (
     MeetingFinalizationService,
 )
 from services.workspace_service import WorkspaceService
+from services.artifact_storage_service import (
+    ArtifactStorageService,
+)
+from services.meeting_pipeline_service import (
+    MeetingPipelineService,
+)
+from services.summary_markdown_exporter import (
+    SummaryMarkdownExporter,
+)
+from services.summary_service import SummaryService
+from services.transcript_analyzer import TranscriptAnalyzer
+from services.transcript_prompt_formatter import (
+    TranscriptPromptFormatter,
+)
+from services.transcript_service import TranscriptService
+from services.transcript_storage_service import (
+    TranscriptStorageService,
+)
+from services.transcript_validator import TranscriptValidator
+from services.validators.summary_validator import (
+    SummaryValidator,
+)
 
 
 @pytest.mark.integration
@@ -48,7 +70,33 @@ def test_meeting_finalization_generates_transcript_for_existing_meeting() -> Non
             workspace = WorkspaceService().create(latest)
             self.attach_workspace(workspace)
 
-    service = MeetingFinalizationService()
+    transcript_storage_service = (
+    TranscriptStorageService()
+)
+
+    meeting_pipeline = MeetingPipelineService(
+        summary_service=SummaryService(),
+        transcript_storage_service=(
+            transcript_storage_service
+        ),
+        transcript_analyzer=TranscriptAnalyzer(),
+        transcript_validator=TranscriptValidator(),
+        transcript_prompt_formatter=(
+            TranscriptPromptFormatter()
+        ),
+        summary_validator=SummaryValidator(),
+        storage_service=ArtifactStorageService(),
+        markdown_exporter=SummaryMarkdownExporter(),
+    )
+
+    service = MeetingFinalizationService(
+        transcript_service=TranscriptService(),
+        transcript_storage_service=(
+            transcript_storage_service
+        ),
+        workspace_service=WorkspaceService(),
+        meeting_pipeline=meeting_pipeline,
+    )
     session = ExistingRecordingSession()
 
     transcript = service.finalize(session)
