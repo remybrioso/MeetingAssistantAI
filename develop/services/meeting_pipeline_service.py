@@ -4,6 +4,8 @@ meeting_pipeline_service.py
 Orquestador del Knowledge Pipeline.
 """
 
+import json
+
 from exceptions.insufficient_transcript_evidence_error import (
     InsufficientTranscriptEvidenceError,
 )
@@ -50,7 +52,7 @@ class MeetingPipelineService:
             or TranscriptValidator()
         )
 
-        # Compatibilidad con construcciones anteriores:
+        # Compatibilidad temporal con:
         # validator=SummaryValidator()
         self.summary_validator = (
             summary_validator
@@ -70,15 +72,17 @@ class MeetingPipelineService:
         Ejecuta el Knowledge Pipeline completo.
 
         Returns:
-            Summary: resumen validado y persistido.
+            Summary:
+                Resumen validado y persistido.
 
         Raises:
             InsufficientTranscriptEvidenceError:
-                Si el transcript no contiene evidencia suficiente.
+                Si el transcript no contiene evidencia
+                suficiente.
 
             ValueError:
-                Si el Summary generado no cumple las reglas
-                de validación.
+                Si el Summary generado no cumple las
+                reglas de validación.
         """
 
         workspace = recording_session.workspace
@@ -102,10 +106,14 @@ class MeetingPipelineService:
                 "; ".join(transcript_errors)
             )
 
-        summary = (
-            self.summary_service.generate_from_transcript(
-                workspace.transcript_json
+        transcript_text = (
+            self._serialize_transcript(
+                transcript
             )
+        )
+
+        summary = self.summary_service.generate(
+            transcript_text
         )
 
         summary_valid, summary_errors = (
@@ -131,6 +139,24 @@ class MeetingPipelineService:
         )
 
         return summary
+
+    @staticmethod
+    def _serialize_transcript(
+        transcript,
+    ) -> str:
+        """
+        Convierte el Transcript en la representación textual
+        enviada al SummaryService.
+
+        Esta responsabilidad será extraída a un componente
+        especializado en una tarea posterior.
+        """
+
+        return json.dumps(
+            transcript.as_dict(),
+            ensure_ascii=False,
+            indent=4,
+        )
 
     def _validate_dependencies(self) -> None:
         """
