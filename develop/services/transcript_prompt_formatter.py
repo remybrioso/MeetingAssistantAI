@@ -39,24 +39,6 @@ class TranscriptPromptFormatter:
     ) -> Prompt:
         """
         Construye un Prompt a partir de un Transcript.
-
-        Args:
-            transcript:
-                Transcripción que será incorporada
-                a la plantilla.
-
-        Returns:
-            Prompt:
-                Prompt completo y versionado.
-
-        Raises:
-            TypeError:
-                Si transcript no es una instancia
-                de Transcript.
-
-            ValueError:
-                Si la plantilla no contiene el marcador
-                obligatorio {{TRANSCRIPT}}.
         """
 
         if not isinstance(

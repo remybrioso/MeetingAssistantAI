@@ -220,13 +220,13 @@ def test_pipeline_uses_formatter_before_summary_service(
     )
 
     assert (
-        transcript_formatter.received_transcript
-        is transcript
-    )
+    transcript_formatter.received_transcript
+    is transcript
+)
 
     assert (
-    summary_service.received_prompt
-    is transcript_formatter.prompt
+        summary_service.received_prompt
+        is transcript_formatter.prompt
     )
 
     assert (
