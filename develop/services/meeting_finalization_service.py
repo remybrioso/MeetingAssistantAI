@@ -23,19 +23,54 @@ from services.workspace_service import WorkspaceService
 
 class MeetingFinalizationService:
 
-    def __init__(self, bus=None):
+    def __init__(
+        self,
+        transcript_service=None,
+        transcript_storage_service=None,
+        workspace_service=None,
+        meeting_pipeline=None,
+        bus=None,
+    ):
+        """
+        Inicializa el servicio de finalización.
+
+        Durante la transición hacia una composición
+        completamente centralizada, las dependencias son
+        opcionales para mantener compatibilidad con las
+        pruebas existentes.
+
+        En TASK-054 pasarán a ser obligatorias.
+        """
 
         self.bus = bus
 
-        self.transcript_service = TranscriptService()
-        self.storage_service = TranscriptStorageService()
-        self.workspace_service = WorkspaceService()
+        self.transcript_service = (
+            transcript_service
+            if transcript_service is not None
+            else TranscriptService()
+        )
 
-        self.meeting_pipeline = MeetingPipelineService(
-            summary_service=SummaryService(),
-            validator=SummaryValidator(),
-            storage_service=ArtifactStorageService(),
-            markdown_exporter=SummaryMarkdownExporter()
+        self.storage_service = (
+            transcript_storage_service
+            if transcript_storage_service is not None
+            else TranscriptStorageService()
+        )
+
+        self.workspace_service = (
+            workspace_service
+            if workspace_service is not None
+            else WorkspaceService()
+        )
+
+        self.meeting_pipeline = (
+            meeting_pipeline
+            if meeting_pipeline is not None
+            else MeetingPipelineService(
+                summary_service=SummaryService(),
+                validator=SummaryValidator(),
+                storage_service=ArtifactStorageService(),
+                markdown_exporter=SummaryMarkdownExporter(),
+            )
         )
 
     def finalize(self, recording_session):

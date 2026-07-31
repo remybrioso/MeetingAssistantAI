@@ -152,7 +152,13 @@ meeting_pipeline = MeetingPipelineService(
 # Servicios de reunión e importación
 meeting_finalization_service = (
     MeetingFinalizationService(
-        event_bus
+        transcript_service=transcript_service,
+        transcript_storage_service=(
+            transcript_storage_service
+        ),
+        workspace_service=workspace_service,
+        meeting_pipeline=meeting_pipeline,
+        bus=event_bus,
     )
 )
 
