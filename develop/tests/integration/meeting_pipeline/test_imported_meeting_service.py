@@ -23,6 +23,9 @@ from services.workspace_service import WorkspaceService
 from exceptions.insufficient_transcript_evidence_error import (
     InsufficientTranscriptEvidenceError,
 )
+from services.transcript_storage_service import (
+    TranscriptStorageService,
+)
 
 
 def find_test_wav() -> Path | None:
@@ -63,9 +66,16 @@ def test_imported_meeting_service_imports_wav() -> None:
             "No existe un archivo WAV válido para importar."
         )
 
+    transcript_storage_service = (
+    TranscriptStorageService()
+)
+
     meeting_pipeline = MeetingPipelineService(
         summary_service=SummaryService(),
         validator=SummaryValidator(),
+        transcript_storage_service=(
+            transcript_storage_service
+        ),
         storage_service=ArtifactStorageService(),
         markdown_exporter=SummaryMarkdownExporter(),
     )
@@ -73,6 +83,9 @@ def test_imported_meeting_service_imports_wav() -> None:
     service = ImportedMeetingService(
         workspace_service=WorkspaceService(),
         transcript_service=TranscriptService(),
+        transcript_storage_service=(
+            transcript_storage_service
+        ),
         meeting_pipeline=meeting_pipeline,
     )
 

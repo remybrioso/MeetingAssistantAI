@@ -14,15 +14,27 @@ from providers.whisper.whisper_provider import WhisperProvider
 
 
 class TranscriptService:
+    """
+    Transcribe una colección de fuentes de audio y produce
+    un Transcript unificado y ordenado cronológicamente.
+    """
 
     def __init__(
         self,
         provider: WhisperProvider | None = None,
         builder: TranscriptBuilder | None = None,
     ):
+        self.provider = (
+            provider
+            if provider is not None
+            else WhisperProvider()
+        )
 
-        self.provider = provider or WhisperProvider()
-        self.builder = builder or TranscriptBuilder()
+        self.builder = (
+            builder
+            if builder is not None
+            else TranscriptBuilder()
+        )
 
     def transcribe_sources(
         self,
@@ -30,18 +42,53 @@ class TranscriptService:
     ) -> Transcript:
         """
         Transcribe todas las fuentes recibidas y devuelve
-        un único Transcript ordenado cronológicamente.
+        un Transcript unificado.
 
-        Los tiempos de cada fuente deben compartir el mismo
-        origen temporal, como ocurre con las pistas grabadas
-        simultáneamente durante una reunión.
+        Los tiempos de las fuentes deben utilizar el mismo
+        origen temporal cuando representan pistas grabadas
+        simultáneamente.
+
+        Args:
+            sources:
+                Fuentes de audio que serán transcritas.
+
+        Returns:
+            Transcript:
+                Transcripción combinada y ordenada.
+
+        Raises:
+            ValueError:
+                Si no se reciben fuentes de audio.
+
+            TypeError:
+                Si algún elemento no es AudioSource.
+
+            FileNotFoundError:
+                Si alguno de los archivos no existe.
         """
+
+        if not sources:
+            raise ValueError(
+                "Se requiere al menos una fuente de audio."
+            )
 
         raw_segments: list[dict] = []
 
         for source in sources:
+
+            if not isinstance(
+                source,
+                AudioSource,
+            ):
+                raise TypeError(
+                    "Todas las fuentes deben ser "
+                    "instancias de AudioSource."
+                )
+
             raw_segments.extend(
-                self._transcribe_source(source)
+                self._transcribe_source(
+                    source
+                )
             )
 
         raw_segments.sort(
@@ -56,32 +103,12 @@ class TranscriptService:
             raw_segments
         )
 
-    def transcribe_microphone(
-        self,
-        recording_session,
-    ) -> Transcript:
-        """
-        Método de compatibilidad para el flujo actual.
-
-        Será retirado cuando todos los consumidores utilicen
-        directamente transcribe_sources().
-        """
-
-        return self.transcribe_sources(
-            [
-                AudioSource(
-                    file=recording_session.mic_file,
-                    speaker="LOCAL",
-                )
-            ]
-        )
-
     def _transcribe_source(
         self,
         source: AudioSource,
     ) -> list[dict]:
         """
-        Transcribe una fuente individual y convierte el
+        Transcribe una fuente individual y adapta el
         resultado del proveedor al formato del builder.
         """
 

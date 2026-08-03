@@ -1,51 +1,80 @@
 from pathlib import Path
 
-from models.recording_session import RecordingSession
+from models.audio_source import AudioSource
 from services.transcript_service import TranscriptService
 
 
 session_dirs = sorted(
     Path("output").glob("meeting_*"),
-    reverse=True
+    reverse=True,
 )
 
 if not session_dirs:
     raise FileNotFoundError(
-        "No hay sesiones en output/meeting_*"
+        "No hay sesiones en output/meeting_*."
     )
 
-latest_session_dir = session_dirs[0]
+latest_session_dir = next(
+    (
+        session_dir
+        for session_dir in session_dirs
+        if (
+            session_dir / "mic.wav"
+        ).is_file()
+        or (
+            session_dir / "Audio" / "Microfono.wav"
+        ).is_file()
+    ),
+    None,
+)
 
-mic_file = latest_session_dir / "mic.wav"
-
-if not mic_file.exists():
+if latest_session_dir is None:
     raise FileNotFoundError(
-        f"No existe {mic_file}"
+        "No existe una sesión con audio de micrófono."
     )
 
+legacy_mic_file = (
+    latest_session_dir / "mic.wav"
+)
 
-class ExistingRecordingSession(RecordingSession):
+workspace_mic_file = (
+    latest_session_dir
+    / "Audio"
+    / "Microfono.wav"
+)
 
-    def __post_init__(self):
-        self.session_dir = latest_session_dir
-        self.session_name = latest_session_dir.name
-
-        self.mic_file = self.session_dir / "mic.wav"
-        self.system_file = self.session_dir / "system.wav"
-        self.meeting_file = self.session_dir / "meeting.wav"
-        self.metadata_file = self.session_dir / "metadata.json"
-
-
-session = ExistingRecordingSession()
+mic_file = (
+    workspace_mic_file
+    if workspace_mic_file.is_file()
+    else legacy_mic_file
+)
 
 service = TranscriptService()
 
-transcript = service.transcribe_microphone(session)
+transcript = service.transcribe_sources(
+    [
+        AudioSource(
+            file=mic_file,
+            speaker="LOCAL",
+        )
+    ]
+)
 
 print(transcript.as_dict())
 
 assert len(transcript.segments) > 0
 
 print()
-print("Segmentos:", len(transcript.segments))
-print("Prueba satisfactoria.")
+print(
+    "Archivo transcrito:",
+    mic_file,
+)
+
+print(
+    "Segmentos:",
+    len(transcript.segments),
+)
+
+print(
+    "Prueba satisfactoria."
+)

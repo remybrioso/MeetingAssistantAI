@@ -1,54 +1,108 @@
 from pathlib import Path
 
-from services.transcript_storage_service import TranscriptStorageService
+from models.audio_source import AudioSource
 from services.transcript_service import TranscriptService
-from models.recording_session import RecordingSession
+from services.transcript_storage_service import (
+    TranscriptStorageService,
+)
 
 
 session_dirs = sorted(
     Path("output").glob("meeting_*"),
-    reverse=True
+    reverse=True,
 )
 
 if not session_dirs:
-    raise FileNotFoundError("No existen reuniones.")
+    raise FileNotFoundError(
+        "No existen reuniones en output/meeting_*."
+    )
 
-latest = session_dirs[0]
+latest_session_dir = next(
+    (
+        session_dir
+        for session_dir in session_dirs
+        if (
+            session_dir / "mic.wav"
+        ).is_file()
+        or (
+            session_dir / "Audio" / "Microfono.wav"
+        ).is_file()
+    ),
+    None,
+)
 
+if latest_session_dir is None:
+    raise FileNotFoundError(
+        "No existe una reunión con audio de micrófono."
+    )
 
-class ExistingRecordingSession(RecordingSession):
+legacy_mic_file = (
+    latest_session_dir / "mic.wav"
+)
 
-    def __post_init__(self):
+workspace_mic_file = (
+    latest_session_dir
+    / "Audio"
+    / "Microfono.wav"
+)
 
-        self.session_dir = latest
-        self.session_name = latest.name
-
-        self.mic_file = latest / "mic.wav"
-        self.system_file = latest / "system.wav"
-        self.meeting_file = latest / "meeting.wav"
-        self.metadata_file = latest / "metadata.json"
-
-
-session = ExistingRecordingSession()
+mic_file = (
+    workspace_mic_file
+    if workspace_mic_file.is_file()
+    else legacy_mic_file
+)
 
 transcript_service = TranscriptService()
+storage_service = TranscriptStorageService()
 
-storage = TranscriptStorageService()
+transcript = transcript_service.transcribe_sources(
+    [
+        AudioSource(
+            file=mic_file,
+            speaker="LOCAL",
+        )
+    ]
+)
 
-transcript = transcript_service.transcribe_microphone(session)
+output_file = (
+    latest_session_dir
+    / "transcript_storage_test.json"
+)
 
-output_file = session.session_dir / "transcript.json"
-
-storage.save(
+storage_service.save(
     transcript,
+    output_file,
+)
+
+loaded_transcript = storage_service.load(
     output_file
 )
 
-loaded = storage.load(output_file)
+print(
+    loaded_transcript.as_dict()
+)
 
-print(loaded.as_dict())
+assert (
+    len(loaded_transcript.segments)
+    == len(transcript.segments)
+)
 
-assert len(loaded.segments) == len(transcript.segments)
+assert (
+    loaded_transcript.as_dict()
+    == transcript.as_dict()
+)
 
 print()
-print("Prueba satisfactoria.")
+print(
+    "Archivo utilizado:",
+    mic_file,
+)
+
+print(
+    "Archivo generado:",
+    output_file,
+)
+
+print(
+    "Prueba satisfactoria."
+)
