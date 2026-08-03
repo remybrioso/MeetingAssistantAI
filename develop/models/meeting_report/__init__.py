@@ -11,9 +11,11 @@ from models.meeting_report.evidence_reference import (
 )
 from models.meeting_report.meeting_topic import MeetingTopic
 from models.meeting_report.participant import Participant
+from models.meeting_report.value_objects import ActionStatus
 
 
 __all__ = [
+    "ActionStatus",
     "Decision",
     "EvidenceBackedItem",
     "EvidenceReference",
