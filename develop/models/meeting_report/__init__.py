@@ -13,6 +13,7 @@ from models.meeting_report.evidence_reference import (
 from models.meeting_report.meeting_risk import MeetingRisk
 from models.meeting_report.meeting_topic import MeetingTopic
 from models.meeting_report.participant import Participant
+from models.meeting_report.pending_item import PendingItem
 from models.meeting_report.value_objects import (
     ActionOwner,
     ActionStatus,
@@ -29,4 +30,5 @@ __all__ = [
     "MeetingRisk",
     "MeetingTopic",
     "Participant",
+    "PendingItem",
 ]
