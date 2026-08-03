@@ -2,6 +2,7 @@
 Modelos de dominio utilizados por MeetingReport.
 """
 
+from models.meeting_report.action_item import ActionItem
 from models.meeting_report.decision import Decision
 from models.meeting_report.evidence_backed_item import (
     EvidenceBackedItem,
@@ -18,6 +19,7 @@ from models.meeting_report.value_objects import (
 
 
 __all__ = [
+    "ActionItem",
     "ActionOwner",
     "ActionStatus",
     "Decision",
