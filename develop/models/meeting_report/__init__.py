@@ -10,6 +10,7 @@ from models.meeting_report.evidence_backed_item import (
 from models.meeting_report.evidence_reference import (
     EvidenceReference,
 )
+from models.meeting_report.meeting_risk import MeetingRisk
 from models.meeting_report.meeting_topic import MeetingTopic
 from models.meeting_report.participant import Participant
 from models.meeting_report.value_objects import (
@@ -25,6 +26,7 @@ __all__ = [
     "Decision",
     "EvidenceBackedItem",
     "EvidenceReference",
+    "MeetingRisk",
     "MeetingTopic",
     "Participant",
 ]
