@@ -8,16 +8,17 @@ import json
 from json import JSONDecodeError
 
 from models.artifacts.meeting_report import MeetingReport
+from models.meeting_report import (
+    EvidenceReference,
+    MeetingTopic,
+    Participant,
+)
 
 
 class MeetingReportParser:
     """
     Convierte la respuesta textual de un proveedor de IA
     en un MeetingReport validado por el dominio.
-
-    Esta primera versión procesa únicamente los campos
-    principales del reporte. Las entidades anidadas se
-    incorporarán en las siguientes tareas.
     """
 
     REQUIRED_FIELDS = {
@@ -26,13 +27,11 @@ class MeetingReportParser:
         "key_points",
     }
 
-    NESTED_FIELDS = {
-        "topics",
+    UNSUPPORTED_NESTED_FIELDS = {
         "decisions",
         "action_items",
         "risks",
         "pending_items",
-        "participants",
     }
 
     def parse(
@@ -44,18 +43,6 @@ class MeetingReportParser:
     ) -> MeetingReport:
         """
         Convierte una respuesta JSON en MeetingReport.
-
-        Raises:
-            ValueError:
-                Si la respuesta está vacía, no contiene
-                JSON válido, carece de campos obligatorios
-                o incluye secciones anidadas todavía no
-                soportadas.
-
-            TypeError:
-                Si el objeto JSON principal no es un
-                diccionario o si el dominio recibe tipos
-                incorrectos.
         """
 
         clean_response = self._clean_json_response(
@@ -82,6 +69,20 @@ class MeetingReportParser:
             data
         )
 
+        topics = self._parse_topics(
+            data.get(
+                "topics",
+                [],
+            )
+        )
+
+        participants = self._parse_participants(
+            data.get(
+                "participants",
+                [],
+            )
+        )
+
         return MeetingReport(
             artifact_type="meeting_report",
             provider=provider,
@@ -95,12 +96,12 @@ class MeetingReportParser:
                 "executive_summary"
             ],
             key_points=data["key_points"],
-            topics=[],
+            topics=topics,
             decisions=[],
             action_items=[],
             risks=[],
             pending_items=[],
-            participants=[],
+            participants=participants,
             conclusions=data.get(
                 "conclusions",
                 [],
@@ -174,9 +175,6 @@ class MeetingReportParser:
     ) -> None:
         """
         Verifica las colecciones textuales conocidas.
-
-        La validación de sus elementos individuales
-        corresponde a MeetingReport.
         """
 
         if not isinstance(
@@ -206,11 +204,11 @@ class MeetingReportParser:
     ) -> None:
         """
         Evita descartar silenciosamente entidades anidadas
-        antes de que el parser pueda construirlas.
+        todavía no soportadas.
         """
 
         for field_name in sorted(
-            self.NESTED_FIELDS
+            self.UNSUPPORTED_NESTED_FIELDS
         ):
             if field_name not in data:
                 continue
@@ -233,15 +231,244 @@ class MeetingReportParser:
                     "MeetingReportParser."
                 )
 
+    def _parse_topics(
+        self,
+        values,
+    ) -> list[MeetingTopic]:
+        """
+        Convierte diccionarios de topics en MeetingTopic.
+        """
+
+        self._validate_list_field(
+            field_name="topics",
+            values=values,
+        )
+
+        topics: list[MeetingTopic] = []
+
+        for index, value in enumerate(
+            values,
+            start=1,
+        ):
+            item = self._validate_dict_item(
+                field_name="topics",
+                index=index,
+                value=value,
+            )
+
+            self._require_item_fields(
+                field_name="topics",
+                index=index,
+                item=item,
+                required_fields={
+                    "title",
+                    "summary",
+                },
+            )
+
+            topics.append(
+                MeetingTopic(
+                    title=item["title"],
+                    summary=item["summary"],
+                    evidence=self._parse_evidence(
+                        item.get(
+                            "evidence",
+                            [],
+                        ),
+                        parent_field="topics",
+                        parent_index=index,
+                    ),
+                )
+            )
+
+        return topics
+
+    def _parse_participants(
+        self,
+        values,
+    ) -> list[Participant]:
+        """
+        Convierte diccionarios en Participant.
+        """
+
+        self._validate_list_field(
+            field_name="participants",
+            values=values,
+        )
+
+        participants: list[Participant] = []
+
+        for index, value in enumerate(
+            values,
+            start=1,
+        ):
+            item = self._validate_dict_item(
+                field_name="participants",
+                index=index,
+                value=value,
+            )
+
+            participants.append(
+                Participant(
+                    name=item.get(
+                        "name"
+                    ),
+                    speaker=item.get(
+                        "speaker"
+                    ),
+                    role=item.get(
+                        "role"
+                    ),
+                )
+            )
+
+        return participants
+
+    def _parse_evidence(
+        self,
+        values,
+        parent_field: str,
+        parent_index: int,
+    ) -> list[EvidenceReference]:
+        """
+        Convierte referencias de evidencia anidadas.
+        """
+
+        if not isinstance(
+            values,
+            list,
+        ):
+            raise TypeError(
+                f"El campo {parent_field} elemento "
+                f"#{parent_index} evidence debe ser "
+                "una lista."
+            )
+
+        evidence_items: list[EvidenceReference] = []
+
+        for evidence_index, value in enumerate(
+            values,
+            start=1,
+        ):
+            if not isinstance(
+                value,
+                dict,
+            ):
+                raise TypeError(
+                    f"El campo {parent_field} elemento "
+                    f"#{parent_index} evidence elemento "
+                    f"#{evidence_index} debe ser un objeto."
+                )
+
+            required_fields = {
+                "speaker",
+                "start",
+                "end",
+                "excerpt",
+            }
+
+            missing_fields = (
+                required_fields.difference(
+                    value.keys()
+                )
+            )
+
+            if missing_fields:
+                raise ValueError(
+                    f"El campo {parent_field} elemento "
+                    f"#{parent_index} evidence elemento "
+                    f"#{evidence_index} no contiene los "
+                    "campos requeridos: "
+                    + ", ".join(
+                        sorted(
+                            missing_fields
+                        )
+                    )
+                )
+
+            evidence_items.append(
+                EvidenceReference(
+                    speaker=value["speaker"],
+                    start=value["start"],
+                    end=value["end"],
+                    excerpt=value["excerpt"],
+                )
+            )
+
+        return evidence_items
+
+    @staticmethod
+    def _validate_list_field(
+        field_name: str,
+        values,
+    ) -> None:
+        """
+        Verifica que una sección anidada sea una lista.
+        """
+
+        if not isinstance(
+            values,
+            list,
+        ):
+            raise TypeError(
+                f"El campo {field_name} debe ser "
+                "una lista."
+            )
+
+    @staticmethod
+    def _validate_dict_item(
+        field_name: str,
+        index: int,
+        value,
+    ) -> dict:
+        """
+        Verifica que un elemento anidado sea un objeto.
+        """
+
+        if not isinstance(
+            value,
+            dict,
+        ):
+            raise TypeError(
+                f"El campo {field_name} elemento "
+                f"#{index} debe ser un objeto."
+            )
+
+        return value
+
+    @staticmethod
+    def _require_item_fields(
+        field_name: str,
+        index: int,
+        item: dict,
+        required_fields: set[str],
+    ) -> None:
+        """
+        Verifica campos obligatorios de una entidad anidada.
+        """
+
+        missing_fields = required_fields.difference(
+            item.keys()
+        )
+
+        if missing_fields:
+            raise ValueError(
+                f"El campo {field_name} elemento "
+                f"#{index} no contiene los campos "
+                "requeridos: "
+                + ", ".join(
+                    sorted(
+                        missing_fields
+                    )
+                )
+            )
+
     @staticmethod
     def _clean_json_response(
         response: str,
     ) -> str:
         """
         Extrae un objeto JSON de la respuesta textual.
-
-        Tolera bloques Markdown y texto externo, pero exige
-        que exista al menos un objeto delimitado por llaves.
         """
 
         if (

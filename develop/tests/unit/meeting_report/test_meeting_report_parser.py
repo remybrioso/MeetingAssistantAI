@@ -290,35 +290,6 @@ def test_parser_accepts_empty_nested_sections() -> None:
     assert report.action_items == []
 
 
-def test_parser_rejects_non_empty_unsupported_section() -> None:
-    response = """
-    {
-        "title": "Reunión",
-        "executive_summary": "Contenido",
-        "key_points": [
-            "Punto confirmado."
-        ],
-        "topics": [
-            {
-                "title": "Arquitectura",
-                "summary": "Se revisó el diseño."
-            }
-        ]
-    }
-    """
-
-    with pytest.raises(
-        ValueError,
-        match="topics todavía no está soportado",
-    ):
-        build_parser().parse(
-            response=response,
-            provider="ollama",
-            model="qwen2.5:3b",
-            prompt_version="meeting_report_v1",
-        )
-
-
 def test_parser_delegates_text_validation_to_domain() -> None:
     response = """
     {
@@ -333,6 +304,331 @@ def test_parser_delegates_text_validation_to_domain() -> None:
     with pytest.raises(
         ValueError,
         match="title no puede estar vacío",
+    ):
+        build_parser().parse(
+            response=response,
+            provider="ollama",
+            model="qwen2.5:3b",
+            prompt_version="meeting_report_v1",
+        )
+
+def test_parser_builds_topics_with_evidence() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó la arquitectura.",
+        "key_points": [
+            "La arquitectura fue validada."
+        ],
+        "topics": [
+            {
+                "title": "Arquitectura",
+                "summary": "Se revisó el diseño del sistema.",
+                "evidence": [
+                    {
+                        "speaker": "REMOTE",
+                        "start": 10.0,
+                        "end": 15.5,
+                        "excerpt": "La arquitectura queda aprobada."
+                    }
+                ]
+            }
+        ]
+    }
+    """
+
+    report = build_parser().parse(
+        response=response,
+        provider="ollama",
+        model="qwen2.5:3b",
+        prompt_version="meeting_report_v1",
+    )
+
+    assert len(report.topics) == 1
+
+    topic = report.topics[0]
+
+    assert topic.title == "Arquitectura"
+
+    assert (
+        topic.summary
+        == "Se revisó el diseño del sistema."
+    )
+
+    assert len(topic.evidence) == 1
+    assert topic.evidence[0].speaker == "REMOTE"
+    assert topic.evidence[0].start == 10.0
+    assert topic.evidence[0].end == 15.5
+
+
+def test_parser_builds_participants() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó la arquitectura.",
+        "key_points": [
+            "La arquitectura fue validada."
+        ],
+        "participants": [
+            {
+                "name": "Remy",
+                "speaker": "LOCAL",
+                "role": "Coordinador"
+            },
+            {
+                "name": null,
+                "speaker": "REMOTE",
+                "role": null
+            }
+        ]
+    }
+    """
+
+    report = build_parser().parse(
+        response=response,
+        provider="ollama",
+        model="qwen2.5:3b",
+        prompt_version="meeting_report_v1",
+    )
+
+    assert len(report.participants) == 2
+
+    first_participant = report.participants[0]
+
+    assert first_participant.name == "Remy"
+    assert first_participant.speaker == "LOCAL"
+
+    second_participant = report.participants[1]
+
+    assert second_participant.name is None
+    assert second_participant.speaker == "REMOTE"
+    assert second_participant.role is None
+
+
+def test_parser_accepts_empty_topics_and_participants() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó la arquitectura.",
+        "key_points": [
+            "La arquitectura fue validada."
+        ],
+        "topics": [],
+        "participants": []
+    }
+    """
+
+    report = build_parser().parse(
+        response=response,
+        provider="ollama",
+        model="qwen2.5:3b",
+        prompt_version="meeting_report_v1",
+    )
+
+    assert report.topics == []
+    assert report.participants == []
+
+
+def test_parser_rejects_non_list_topics() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó la arquitectura.",
+        "key_points": [
+            "La arquitectura fue validada."
+        ],
+        "topics": {}
+    }
+    """
+
+    with pytest.raises(
+        TypeError,
+        match="topics debe ser una lista",
+    ):
+        build_parser().parse(
+            response=response,
+            provider="ollama",
+            model="qwen2.5:3b",
+            prompt_version="meeting_report_v1",
+        )
+
+
+def test_parser_rejects_non_object_topic() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó la arquitectura.",
+        "key_points": [
+            "La arquitectura fue validada."
+        ],
+        "topics": [
+            "tema inválido"
+        ]
+    }
+    """
+
+    with pytest.raises(
+        TypeError,
+        match=(
+            "topics elemento #1 debe ser un objeto"
+        ),
+    ):
+        build_parser().parse(
+            response=response,
+            provider="ollama",
+            model="qwen2.5:3b",
+            prompt_version="meeting_report_v1",
+        )
+
+
+def test_parser_reports_missing_topic_fields() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó la arquitectura.",
+        "key_points": [
+            "La arquitectura fue validada."
+        ],
+        "topics": [
+            {
+                "title": "Arquitectura"
+            }
+        ]
+    }
+    """
+
+    with pytest.raises(
+        ValueError,
+        match="topics elemento #1",
+    ) as error:
+        build_parser().parse(
+            response=response,
+            provider="ollama",
+            model="qwen2.5:3b",
+            prompt_version="meeting_report_v1",
+        )
+
+    assert "summary" in str(
+        error.value
+    )
+
+
+def test_parser_rejects_invalid_topic_evidence_type() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó la arquitectura.",
+        "key_points": [
+            "La arquitectura fue validada."
+        ],
+        "topics": [
+            {
+                "title": "Arquitectura",
+                "summary": "Se revisó el diseño.",
+                "evidence": {}
+            }
+        ]
+    }
+    """
+
+    with pytest.raises(
+        TypeError,
+        match=(
+            "topics elemento #1 evidence "
+            "debe ser una lista"
+        ),
+    ):
+        build_parser().parse(
+            response=response,
+            provider="ollama",
+            model="qwen2.5:3b",
+            prompt_version="meeting_report_v1",
+        )
+
+
+def test_parser_rejects_incomplete_evidence() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó la arquitectura.",
+        "key_points": [
+            "La arquitectura fue validada."
+        ],
+        "topics": [
+            {
+                "title": "Arquitectura",
+                "summary": "Se revisó el diseño.",
+                "evidence": [
+                    {
+                        "speaker": "REMOTE",
+                        "start": 10.0
+                    }
+                ]
+            }
+        ]
+    }
+    """
+
+    with pytest.raises(
+        ValueError,
+        match="campos requeridos",
+    ) as error:
+        build_parser().parse(
+            response=response,
+            provider="ollama",
+            model="qwen2.5:3b",
+            prompt_version="meeting_report_v1",
+        )
+
+    message = str(
+        error.value
+    )
+
+    assert "end" in message
+    assert "excerpt" in message
+
+
+def test_parser_rejects_non_list_participants() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó la arquitectura.",
+        "key_points": [
+            "La arquitectura fue validada."
+        ],
+        "participants": {}
+    }
+    """
+
+    with pytest.raises(
+        TypeError,
+        match="participants debe ser una lista",
+    ):
+        build_parser().parse(
+            response=response,
+            provider="ollama",
+            model="qwen2.5:3b",
+            prompt_version="meeting_report_v1",
+        )
+
+
+def test_parser_rejects_completely_empty_participant() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó la arquitectura.",
+        "key_points": [
+            "La arquitectura fue validada."
+        ],
+        "participants": [
+            {}
+        ]
+    }
+    """
+
+    with pytest.raises(
+        ValueError,
+        match="requiere al menos un dato",
     ):
         build_parser().parse(
             response=response,
