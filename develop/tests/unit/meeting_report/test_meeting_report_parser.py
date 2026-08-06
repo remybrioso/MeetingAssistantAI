@@ -885,32 +885,3 @@ def test_parser_requires_description_in_operational_items(
         error.value
     )
 
-
-def test_parser_keeps_action_items_as_only_unsupported_section() -> None:
-    response = """
-    {
-        "title": "Reunión técnica",
-        "executive_summary": "Contenido.",
-        "key_points": [
-            "Punto confirmado."
-        ],
-        "action_items": [
-            {
-                "description": "Ejecutar las pruebas."
-            }
-        ]
-    }
-    """
-
-    with pytest.raises(
-        ValueError,
-        match=(
-            "action_items todavía no está soportado"
-        ),
-    ):
-        build_parser().parse(
-            response=response,
-            provider="ollama",
-            model="qwen2.5:3b",
-            prompt_version="meeting_report_v1",
-        )

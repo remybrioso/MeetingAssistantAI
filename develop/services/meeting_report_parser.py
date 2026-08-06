@@ -5,10 +5,14 @@ Convierte una respuesta JSON de IA en un MeetingReport.
 """
 
 import json
+from datetime import date
 from json import JSONDecodeError
 
 from models.artifacts.meeting_report import MeetingReport
 from models.meeting_report import (
+    ActionItem,
+    ActionOwner,
+    ActionStatus,
     Decision,
     EvidenceReference,
     MeetingRisk,
@@ -23,27 +27,22 @@ class MeetingReportParser:
     Convierte la respuesta textual de un proveedor de IA
     en un MeetingReport validado por el dominio.
 
-    Esta versión soporta:
+    Soporta:
 
     - campos principales;
     - topics;
     - participants;
     - decisions;
+    - action_items;
     - risks;
     - pending_items;
     - evidence.
-
-    ActionItem se incorporará en la siguiente tarea.
     """
 
     REQUIRED_FIELDS = {
         "title",
         "executive_summary",
         "key_points",
-    }
-
-    UNSUPPORTED_NESTED_FIELDS = {
-        "action_items",
     }
 
     def parse(
@@ -58,13 +57,13 @@ class MeetingReportParser:
 
         Raises:
             ValueError:
-                Si la respuesta está vacía, no contiene
-                JSON válido, faltan campos obligatorios
-                o contiene una sección aún no soportada.
+                Si la respuesta está vacía, contiene JSON
+                inválido, carece de campos obligatorios o
+                contiene valores no reconocidos.
 
             TypeError:
-                Si la estructura JSON contiene tipos
-                incompatibles con el contrato esperado.
+                Si la estructura JSON usa tipos incompatibles
+                con el contrato esperado.
         """
 
         clean_response = self._clean_json_response(
@@ -87,10 +86,6 @@ class MeetingReportParser:
             data
         )
 
-        self._validate_unsupported_nested_fields(
-            data
-        )
-
         topics = self._parse_topics(
             data.get(
                 "topics",
@@ -108,6 +103,13 @@ class MeetingReportParser:
         decisions = self._parse_decisions(
             data.get(
                 "decisions",
+                [],
+            )
+        )
+
+        action_items = self._parse_action_items(
+            data.get(
+                "action_items",
                 [],
             )
         )
@@ -141,7 +143,7 @@ class MeetingReportParser:
             key_points=data["key_points"],
             topics=topics,
             decisions=decisions,
-            action_items=[],
+            action_items=action_items,
             risks=risks,
             pending_items=pending_items,
             participants=participants,
@@ -219,8 +221,8 @@ class MeetingReportParser:
         """
         Verifica las colecciones textuales principales.
 
-        La validación del contenido individual pertenece
-        al modelo MeetingReport.
+        La validación de cada elemento pertenece al modelo
+        MeetingReport.
         """
 
         if not isinstance(
@@ -244,45 +246,12 @@ class MeetingReportParser:
                 "El campo conclusions debe ser una lista."
             )
 
-    def _validate_unsupported_nested_fields(
-        self,
-        data: dict,
-    ) -> None:
-        """
-        Evita descartar silenciosamente secciones anidadas
-        todavía no soportadas.
-        """
-
-        for field_name in sorted(
-            self.UNSUPPORTED_NESTED_FIELDS
-        ):
-            if field_name not in data:
-                continue
-
-            value = data[field_name]
-
-            if not isinstance(
-                value,
-                list,
-            ):
-                raise TypeError(
-                    f"El campo {field_name} debe ser "
-                    "una lista."
-                )
-
-            if value:
-                raise ValueError(
-                    f"El campo {field_name} todavía no "
-                    "está soportado por "
-                    "MeetingReportParser."
-                )
-
     def _parse_topics(
         self,
         values,
     ) -> list[MeetingTopic]:
         """
-        Convierte diccionarios de topics en MeetingTopic.
+        Convierte diccionarios en MeetingTopic.
         """
 
         self._validate_list_field(
@@ -424,6 +393,215 @@ class MeetingReportParser:
             )
 
         return decisions
+
+    def _parse_action_items(
+        self,
+        values,
+    ) -> list[ActionItem]:
+        """
+        Convierte diccionarios en ActionItem.
+
+        Contrato JSON de cada acción:
+
+        {
+            "description": str,
+            "owner": str | {"display_name": str} | null,
+            "due_date": "YYYY-MM-DD" | null,
+            "status": str | null,
+            "evidence": list
+        }
+        """
+
+        self._validate_list_field(
+            field_name="action_items",
+            values=values,
+        )
+
+        action_items: list[ActionItem] = []
+
+        for index, value in enumerate(
+            values,
+            start=1,
+        ):
+            item = self._validate_dict_item(
+                field_name="action_items",
+                index=index,
+                value=value,
+            )
+
+            self._require_item_fields(
+                field_name="action_items",
+                index=index,
+                item=item,
+                required_fields={
+                    "description",
+                },
+            )
+
+            action_items.append(
+                ActionItem(
+                    description=item[
+                        "description"
+                    ],
+                    owner=self._parse_action_owner(
+                        item.get(
+                            "owner"
+                        ),
+                        action_index=index,
+                    ),
+                    due_date=self._parse_due_date(
+                        item.get(
+                            "due_date"
+                        ),
+                        action_index=index,
+                    ),
+                    status=self._parse_action_status(
+                        item.get(
+                            "status"
+                        ),
+                        action_index=index,
+                    ),
+                    evidence=self._parse_evidence(
+                        item.get(
+                            "evidence",
+                            [],
+                        ),
+                        parent_field="action_items",
+                        parent_index=index,
+                    ),
+                )
+            )
+
+        return action_items
+
+    @staticmethod
+    def _parse_action_owner(
+        value,
+        action_index: int,
+    ) -> ActionOwner | None:
+        """
+        Convierte owner en ActionOwner.
+
+        Formas aceptadas:
+
+        - null;
+        - cadena;
+        - objeto con display_name.
+        """
+
+        if value is None:
+            return None
+
+        if isinstance(
+            value,
+            str,
+        ):
+            return ActionOwner.from_value(
+                value
+            )
+
+        if isinstance(
+            value,
+            dict,
+        ):
+            if "display_name" not in value:
+                raise ValueError(
+                    "El campo action_items elemento "
+                    f"#{action_index} owner no contiene "
+                    "el campo requerido: display_name."
+                )
+
+            return ActionOwner.from_value(
+                value[
+                    "display_name"
+                ]
+            )
+
+        raise TypeError(
+            "El campo action_items elemento "
+            f"#{action_index} owner debe ser una cadena, "
+            "un objeto o null."
+        )
+
+    @staticmethod
+    def _parse_due_date(
+        value,
+        action_index: int,
+    ) -> date | None:
+        """
+        Convierte una fecha ISO YYYY-MM-DD en date.
+
+        Las expresiones ambiguas de lenguaje natural no se
+        convierten dentro del dominio.
+        """
+
+        if value is None:
+            return None
+
+        if not isinstance(
+            value,
+            str,
+        ):
+            raise TypeError(
+                "El campo action_items elemento "
+                f"#{action_index} due_date debe ser una "
+                "cadena ISO o null."
+            )
+
+        normalized_value = value.strip()
+
+        if not normalized_value:
+            raise ValueError(
+                "El campo action_items elemento "
+                f"#{action_index} due_date no puede "
+                "estar vacío."
+            )
+
+        try:
+            return date.fromisoformat(
+                normalized_value
+            )
+
+        except ValueError as ex:
+            raise ValueError(
+                "El campo action_items elemento "
+                f"#{action_index} due_date no contiene "
+                "una fecha ISO válida con formato "
+                "YYYY-MM-DD."
+            ) from ex
+
+    @staticmethod
+    def _parse_action_status(
+        value,
+        action_index: int,
+    ) -> ActionStatus:
+        """
+        Convierte el estado textual en ActionStatus.
+
+        Un valor ausente o null significa que la reunión
+        no expresó un estado y se representa como UNKNOWN.
+
+        Los estados desconocidos se rechazan; no se
+        convierten silenciosamente en UNKNOWN.
+        """
+
+        if value is None:
+            return ActionStatus.UNKNOWN
+
+        try:
+            return ActionStatus.from_value(
+                value
+            )
+
+        except (
+            TypeError,
+            ValueError,
+        ) as ex:
+            raise type(ex)(
+                "El campo action_items elemento "
+                f"#{action_index} status es inválido. "
+                f"Detalle: {ex}"
+            ) from ex
 
     def _parse_risks(
         self,
