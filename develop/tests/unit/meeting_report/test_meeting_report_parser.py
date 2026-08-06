@@ -636,3 +636,281 @@ def test_parser_rejects_completely_empty_participant() -> None:
             model="qwen2.5:3b",
             prompt_version="meeting_report_v1",
         )
+
+def test_parser_builds_decisions() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó el proyecto.",
+        "key_points": [
+            "Se aprobó mover la implementación."
+        ],
+        "decisions": [
+            {
+                "description": "Mover la implementación.",
+                "rationale": "Las pruebas no están listas.",
+                "evidence": [
+                    {
+                        "speaker": "REMOTE",
+                        "start": 20.0,
+                        "end": 25.0,
+                        "excerpt": "Moveremos la implementación."
+                    }
+                ]
+            }
+        ]
+    }
+    """
+
+    report = build_parser().parse(
+        response=response,
+        provider="ollama",
+        model="qwen2.5:3b",
+        prompt_version="meeting_report_v1",
+    )
+
+    assert len(report.decisions) == 1
+
+    decision = report.decisions[0]
+
+    assert (
+        decision.description
+        == "Mover la implementación."
+    )
+
+    assert (
+        decision.rationale
+        == "Las pruebas no están listas."
+    )
+
+    assert len(decision.evidence) == 1
+
+
+def test_parser_builds_risks() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó el proyecto.",
+        "key_points": [
+            "Existe riesgo de retraso."
+        ],
+        "risks": [
+            {
+                "description": "Las pruebas pueden retrasarse.",
+                "impact": "El despliegue podría moverse.",
+                "evidence": []
+            }
+        ]
+    }
+    """
+
+    report = build_parser().parse(
+        response=response,
+        provider="ollama",
+        model="qwen2.5:3b",
+        prompt_version="meeting_report_v1",
+    )
+
+    assert len(report.risks) == 1
+
+    risk = report.risks[0]
+
+    assert (
+        risk.description
+        == "Las pruebas pueden retrasarse."
+    )
+
+    assert (
+        risk.impact
+        == "El despliegue podría moverse."
+    )
+
+
+def test_parser_builds_pending_items() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó el proyecto.",
+        "key_points": [
+            "Falta confirmar la ventana."
+        ],
+        "pending_items": [
+            {
+                "description": "Confirmar la ventana.",
+                "evidence": []
+            }
+        ]
+    }
+    """
+
+    report = build_parser().parse(
+        response=response,
+        provider="ollama",
+        model="qwen2.5:3b",
+        prompt_version="meeting_report_v1",
+    )
+
+    assert len(report.pending_items) == 1
+
+    assert (
+        report.pending_items[0].description
+        == "Confirmar la ventana."
+    )
+
+
+@pytest.mark.parametrize(
+    (
+        "field_name",
+        "expected_message",
+    ),
+    [
+        (
+            "decisions",
+            "decisions debe ser una lista",
+        ),
+        (
+            "risks",
+            "risks debe ser una lista",
+        ),
+        (
+            "pending_items",
+            "pending_items debe ser una lista",
+        ),
+    ],
+)
+def test_parser_rejects_non_list_supported_sections(
+    field_name: str,
+    expected_message: str,
+) -> None:
+    response = f"""
+    {{
+        "title": "Reunión técnica",
+        "executive_summary": "Contenido.",
+        "key_points": [
+            "Punto confirmado."
+        ],
+        "{field_name}": {{}}
+    }}
+    """
+
+    with pytest.raises(
+        TypeError,
+        match=expected_message,
+    ):
+        build_parser().parse(
+            response=response,
+            provider="ollama",
+            model="qwen2.5:3b",
+            prompt_version="meeting_report_v1",
+        )
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "decisions",
+        "risks",
+        "pending_items",
+    ],
+)
+def test_parser_rejects_non_object_supported_items(
+    field_name: str,
+) -> None:
+    response = f"""
+    {{
+        "title": "Reunión técnica",
+        "executive_summary": "Contenido.",
+        "key_points": [
+            "Punto confirmado."
+        ],
+        "{field_name}": [
+            "elemento inválido"
+        ]
+    }}
+    """
+
+    with pytest.raises(
+        TypeError,
+        match=(
+            f"{field_name} elemento #1 debe ser "
+            "un objeto"
+        ),
+    ):
+        build_parser().parse(
+            response=response,
+            provider="ollama",
+            model="qwen2.5:3b",
+            prompt_version="meeting_report_v1",
+        )
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "decisions",
+        "risks",
+        "pending_items",
+    ],
+)
+def test_parser_requires_description_in_operational_items(
+    field_name: str,
+) -> None:
+    response = f"""
+    {{
+        "title": "Reunión técnica",
+        "executive_summary": "Contenido.",
+        "key_points": [
+            "Punto confirmado."
+        ],
+        "{field_name}": [
+            {{}}
+        ]
+    }}
+    """
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            f"{field_name} elemento #1"
+        ),
+    ) as error:
+        build_parser().parse(
+            response=response,
+            provider="ollama",
+            model="qwen2.5:3b",
+            prompt_version="meeting_report_v1",
+        )
+
+    assert "description" in str(
+        error.value
+    )
+
+
+def test_parser_keeps_action_items_as_only_unsupported_section() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Contenido.",
+        "key_points": [
+            "Punto confirmado."
+        ],
+        "action_items": [
+            {
+                "description": "Ejecutar las pruebas."
+            }
+        ]
+    }
+    """
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "action_items todavía no está soportado"
+        ),
+    ):
+        build_parser().parse(
+            response=response,
+            provider="ollama",
+            model="qwen2.5:3b",
+            prompt_version="meeting_report_v1",
+        )

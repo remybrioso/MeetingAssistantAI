@@ -9,9 +9,12 @@ from json import JSONDecodeError
 
 from models.artifacts.meeting_report import MeetingReport
 from models.meeting_report import (
+    Decision,
     EvidenceReference,
+    MeetingRisk,
     MeetingTopic,
     Participant,
+    PendingItem,
 )
 
 
@@ -19,6 +22,18 @@ class MeetingReportParser:
     """
     Convierte la respuesta textual de un proveedor de IA
     en un MeetingReport validado por el dominio.
+
+    Esta versión soporta:
+
+    - campos principales;
+    - topics;
+    - participants;
+    - decisions;
+    - risks;
+    - pending_items;
+    - evidence.
+
+    ActionItem se incorporará en la siguiente tarea.
     """
 
     REQUIRED_FIELDS = {
@@ -28,10 +43,7 @@ class MeetingReportParser:
     }
 
     UNSUPPORTED_NESTED_FIELDS = {
-        "decisions",
         "action_items",
-        "risks",
-        "pending_items",
     }
 
     def parse(
@@ -43,6 +55,16 @@ class MeetingReportParser:
     ) -> MeetingReport:
         """
         Convierte una respuesta JSON en MeetingReport.
+
+        Raises:
+            ValueError:
+                Si la respuesta está vacía, no contiene
+                JSON válido, faltan campos obligatorios
+                o contiene una sección aún no soportada.
+
+            TypeError:
+                Si la estructura JSON contiene tipos
+                incompatibles con el contrato esperado.
         """
 
         clean_response = self._clean_json_response(
@@ -83,6 +105,27 @@ class MeetingReportParser:
             )
         )
 
+        decisions = self._parse_decisions(
+            data.get(
+                "decisions",
+                [],
+            )
+        )
+
+        risks = self._parse_risks(
+            data.get(
+                "risks",
+                [],
+            )
+        )
+
+        pending_items = self._parse_pending_items(
+            data.get(
+                "pending_items",
+                [],
+            )
+        )
+
         return MeetingReport(
             artifact_type="meeting_report",
             provider=provider,
@@ -97,10 +140,10 @@ class MeetingReportParser:
             ],
             key_points=data["key_points"],
             topics=topics,
-            decisions=[],
+            decisions=decisions,
             action_items=[],
-            risks=[],
-            pending_items=[],
+            risks=risks,
+            pending_items=pending_items,
             participants=participants,
             conclusions=data.get(
                 "conclusions",
@@ -113,7 +156,7 @@ class MeetingReportParser:
         clean_response: str,
     ):
         """
-        Convierte el contenido limpio en datos Python.
+        Convierte el contenido JSON limpio en datos Python.
         """
 
         try:
@@ -174,7 +217,10 @@ class MeetingReportParser:
         data: dict,
     ) -> None:
         """
-        Verifica las colecciones textuales conocidas.
+        Verifica las colecciones textuales principales.
+
+        La validación del contenido individual pertenece
+        al modelo MeetingReport.
         """
 
         if not isinstance(
@@ -203,7 +249,7 @@ class MeetingReportParser:
         data: dict,
     ) -> None:
         """
-        Evita descartar silenciosamente entidades anidadas
+        Evita descartar silenciosamente secciones anidadas
         todavía no soportadas.
         """
 
@@ -324,6 +370,168 @@ class MeetingReportParser:
 
         return participants
 
+    def _parse_decisions(
+        self,
+        values,
+    ) -> list[Decision]:
+        """
+        Convierte diccionarios en Decision.
+        """
+
+        self._validate_list_field(
+            field_name="decisions",
+            values=values,
+        )
+
+        decisions: list[Decision] = []
+
+        for index, value in enumerate(
+            values,
+            start=1,
+        ):
+            item = self._validate_dict_item(
+                field_name="decisions",
+                index=index,
+                value=value,
+            )
+
+            self._require_item_fields(
+                field_name="decisions",
+                index=index,
+                item=item,
+                required_fields={
+                    "description",
+                },
+            )
+
+            decisions.append(
+                Decision(
+                    description=item[
+                        "description"
+                    ],
+                    rationale=item.get(
+                        "rationale"
+                    ),
+                    evidence=self._parse_evidence(
+                        item.get(
+                            "evidence",
+                            [],
+                        ),
+                        parent_field="decisions",
+                        parent_index=index,
+                    ),
+                )
+            )
+
+        return decisions
+
+    def _parse_risks(
+        self,
+        values,
+    ) -> list[MeetingRisk]:
+        """
+        Convierte diccionarios en MeetingRisk.
+        """
+
+        self._validate_list_field(
+            field_name="risks",
+            values=values,
+        )
+
+        risks: list[MeetingRisk] = []
+
+        for index, value in enumerate(
+            values,
+            start=1,
+        ):
+            item = self._validate_dict_item(
+                field_name="risks",
+                index=index,
+                value=value,
+            )
+
+            self._require_item_fields(
+                field_name="risks",
+                index=index,
+                item=item,
+                required_fields={
+                    "description",
+                },
+            )
+
+            risks.append(
+                MeetingRisk(
+                    description=item[
+                        "description"
+                    ],
+                    impact=item.get(
+                        "impact"
+                    ),
+                    evidence=self._parse_evidence(
+                        item.get(
+                            "evidence",
+                            [],
+                        ),
+                        parent_field="risks",
+                        parent_index=index,
+                    ),
+                )
+            )
+
+        return risks
+
+    def _parse_pending_items(
+        self,
+        values,
+    ) -> list[PendingItem]:
+        """
+        Convierte diccionarios en PendingItem.
+        """
+
+        self._validate_list_field(
+            field_name="pending_items",
+            values=values,
+        )
+
+        pending_items: list[PendingItem] = []
+
+        for index, value in enumerate(
+            values,
+            start=1,
+        ):
+            item = self._validate_dict_item(
+                field_name="pending_items",
+                index=index,
+                value=value,
+            )
+
+            self._require_item_fields(
+                field_name="pending_items",
+                index=index,
+                item=item,
+                required_fields={
+                    "description",
+                },
+            )
+
+            pending_items.append(
+                PendingItem(
+                    description=item[
+                        "description"
+                    ],
+                    evidence=self._parse_evidence(
+                        item.get(
+                            "evidence",
+                            [],
+                        ),
+                        parent_field="pending_items",
+                        parent_index=index,
+                    ),
+                )
+            )
+
+        return pending_items
+
     def _parse_evidence(
         self,
         values,
@@ -388,10 +596,18 @@ class MeetingReportParser:
 
             evidence_items.append(
                 EvidenceReference(
-                    speaker=value["speaker"],
-                    start=value["start"],
-                    end=value["end"],
-                    excerpt=value["excerpt"],
+                    speaker=value[
+                        "speaker"
+                    ],
+                    start=value[
+                        "start"
+                    ],
+                    end=value[
+                        "end"
+                    ],
+                    excerpt=value[
+                        "excerpt"
+                    ],
                 )
             )
 
@@ -469,6 +685,9 @@ class MeetingReportParser:
     ) -> str:
         """
         Extrae un objeto JSON de la respuesta textual.
+
+        Tolera bloques Markdown y texto externo, pero exige
+        la presencia de un objeto delimitado por llaves.
         """
 
         if (
