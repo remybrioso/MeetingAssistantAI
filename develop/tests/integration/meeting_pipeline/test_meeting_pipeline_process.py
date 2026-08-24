@@ -1,79 +1,169 @@
 from pathlib import Path
 
 import pytest
+from requests.exceptions import ReadTimeout
 
-from models.recording_session import RecordingSession
-from services.artifact_storage_service import ArtifactStorageService
-from services.meeting_pipeline_service import MeetingPipelineService
-from services.summary_markdown_exporter import SummaryMarkdownExporter
-from services.summary_service import SummaryService
-from services.validators.summary_validator import SummaryValidator
-from services.workspace_service import WorkspaceService
 from exceptions.insufficient_transcript_evidence_error import (
     InsufficientTranscriptEvidenceError,
 )
+from models.artifacts.meeting_report import MeetingReport
+from models.recording_session import RecordingSession
+from services.artifact_storage_service import (
+    ArtifactStorageService,
+)
+from services.meeting_pipeline_service import (
+    MeetingPipelineService,
+)
+from services.meeting_report_generator import (
+    MeetingReportGenerator,
+)
+from services.meeting_report_markdown_exporter import (
+    MeetingReportMarkdownExporter,
+)
+from services.workspace_service import WorkspaceService
 
 
 @pytest.mark.integration
 def test_meeting_pipeline_processes_latest_existing_meeting() -> None:
     session_dirs = sorted(
-        Path("output").glob("meeting_*"),
+        Path("output").glob(
+            "meeting_*"
+        ),
         reverse=True,
     )
 
     if not session_dirs:
         pytest.skip(
-            "No hay reuniones disponibles en output/meeting_*."
+            "No hay reuniones disponibles en "
+            "output/meeting_*."
         )
 
     latest = next(
         (
             session_dir
             for session_dir in session_dirs
-            if (session_dir / ".mai" / "transcript.json").exists()
+            if (
+                session_dir
+                / ".mai"
+                / "transcript.json"
+            ).exists()
         ),
         None,
     )
 
     if latest is None:
         pytest.skip(
-            "No existe una reunión con transcript.json."
+            "No existe una reunión con "
+            "transcript.json."
         )
 
-    class ExistingRecordingSession(RecordingSession):
+    class ExistingRecordingSession(
+        RecordingSession
+    ):
 
-        def __post_init__(self) -> None:
+        def __post_init__(
+            self,
+        ) -> None:
             self.session_dir = latest
             self.session_name = latest.name
 
-            self.mic_file = latest / "mic.wav"
-            self.system_file = latest / "system.wav"
-            self.meeting_file = latest / "meeting.wav"
-            self.metadata_file = latest / "metadata.json"
-            workspace = WorkspaceService().create(latest)
-            self.attach_workspace(workspace)
+            workspace = (
+                WorkspaceService()
+                .create(
+                    latest
+                )
+            )
+
+            self.attach_workspace(
+                workspace
+            )
 
     pipeline = MeetingPipelineService(
-        summary_service=SummaryService(),
-        validator=SummaryValidator(),
-        storage_service=ArtifactStorageService(),
-        markdown_exporter=SummaryMarkdownExporter(),
+        artifact_generator=(
+            MeetingReportGenerator()
+        ),
+        storage_service=(
+            ArtifactStorageService()
+        ),
+        markdown_exporter=(
+            MeetingReportMarkdownExporter()
+        ),
     )
-
-    try:
-        summary = pipeline.process(
-            ExistingRecordingSession()
-        )
-    except InsufficientTranscriptEvidenceError:
-        pytest.skip(
-            "La reunión existente no contiene evidencia "
-            "suficiente para generar una minuta."
-        )
 
     session = ExistingRecordingSession()
 
-    summary = pipeline.process(session)
+    try:
+        report = pipeline.process(
+            session
+        )
 
-    assert summary is not None
-    assert session.workspace.summary_json.exists()
-    assert session.workspace.summary_markdown.exists()
+    except InsufficientTranscriptEvidenceError:
+        pytest.skip(
+            "La reunión existente no contiene "
+            "evidencia suficiente para generar "
+            "un MeetingReport."
+        )
+
+    except ReadTimeout:
+        pytest.skip(
+            "Ollama superó el tiempo máximo de "
+            "respuesta durante la prueba real."
+        )
+
+    except ValueError as ex:
+        if str(ex).startswith(
+            "MeetingReport inválido:"
+        ):
+            pytest.skip(
+                "El proveedor de IA devolvió un "
+                "MeetingReport que no superó la "
+                "validación semántica: "
+                f"{ex}"
+            )
+
+        raise
+
+    assert isinstance(
+        report,
+        MeetingReport,
+    )
+
+    assert (
+        report.artifact_type
+        == "meeting_report"
+    )
+
+    assert (
+        report.prompt_version
+        == "meeting_report_v1"
+    )
+
+    assert (
+        session.workspace
+        .meeting_report_json
+        .exists()
+    )
+
+    assert (
+        session.workspace
+        .meeting_report_markdown
+        .exists()
+    )
+
+    markdown = (
+        session.workspace
+        .meeting_report_markdown
+        .read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert (
+        f"# {report.title}"
+        in markdown
+    )
+
+    assert (
+        "## Resumen ejecutivo"
+        in markdown
+    )

@@ -885,3 +885,67 @@ def test_parser_requires_description_in_operational_items(
         error.value
     )
 
+def test_parser_ignores_completely_empty_topic_placeholder() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó el estado general del proyecto.",
+        "key_points": [
+            "Se revisó el estado actual del proyecto."
+        ],
+        "topics": [
+            {
+                "title": "",
+                "summary": "",
+                "evidence": [
+                    {
+                        "speaker": "USER",
+                        "start": 10.0,
+                        "end": 12.0,
+                        "excerpt": "Fragmento sin tema identificable."
+                    }
+                ]
+            }
+        ]
+    }
+    """
+
+    report = build_parser().parse(
+        response=response,
+        provider="ollama",
+        model="qwen2.5:3b",
+        prompt_version="meeting_report_v1",
+    )
+
+    assert report.topics == []
+
+
+def test_parser_rejects_partially_empty_topic() -> None:
+    response = """
+    {
+        "title": "Reunión técnica",
+        "executive_summary": "Se revisó el estado general del proyecto.",
+        "key_points": [
+            "Se revisó el estado actual del proyecto."
+        ],
+        "topics": [
+            {
+                "title": "",
+                "summary": "Se revisó la arquitectura del sistema.",
+                "evidence": []
+            }
+        ]
+    }
+    """
+
+    with pytest.raises(
+        ValueError,
+        match="MeetingTopic title no puede estar vacío",
+    ):
+        build_parser().parse(
+            response=response,
+            provider="ollama",
+            model="qwen2.5:3b",
+            prompt_version="meeting_report_v1",
+        )
+

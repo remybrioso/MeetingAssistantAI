@@ -56,6 +56,18 @@ from services.transcript_storage_service import (
 from services.transcript_validator import TranscriptValidator
 from services.validators.summary_validator import SummaryValidator
 from services.workspace_service import WorkspaceService
+from services.meeting_report_generator import (
+    MeetingReportGenerator,
+)
+from services.meeting_report_markdown_exporter import (
+    MeetingReportMarkdownExporter,
+)
+from services.meeting_report_service import (
+    MeetingReportService,
+)
+from services.validators.meeting_report_validator import (
+    MeetingReportValidator,
+)
 
 
 class DependencyContainer:
@@ -131,21 +143,45 @@ summary_validator = SummaryValidator()
 artifact_storage_service = ArtifactStorageService()
 summary_markdown_exporter = SummaryMarkdownExporter()
 
+# Servicios de MeetingReport
+meeting_report_prompt_formatter = (
+    TranscriptPromptFormatter(
+        contract="meeting_report_v1"
+    )
+)
+
+meeting_report_service = MeetingReportService()
+
+meeting_report_validator = MeetingReportValidator()
+
+meeting_report_generator = MeetingReportGenerator(
+    prompt_formatter=(
+        meeting_report_prompt_formatter
+    ),
+    meeting_report_service=(
+        meeting_report_service
+    ),
+    validator=meeting_report_validator,
+)
+
+meeting_report_markdown_exporter = (
+    MeetingReportMarkdownExporter()
+)
 
 # Knowledge Pipeline
 meeting_pipeline = MeetingPipelineService(
-    summary_service=summary_service,
+    artifact_generator=(
+        meeting_report_generator
+    ),
     transcript_storage_service=(
         transcript_storage_service
     ),
     transcript_analyzer=transcript_analyzer,
     transcript_validator=transcript_validator,
-    transcript_prompt_formatter=(
-        transcript_prompt_formatter
-    ),
-    summary_validator=summary_validator,
     storage_service=artifact_storage_service,
-    markdown_exporter=summary_markdown_exporter,
+    markdown_exporter=(
+        meeting_report_markdown_exporter
+    ),
 )
 
 
@@ -162,10 +198,15 @@ meeting_finalization_service = (
     )
 )
 
-imported_meeting_service = ImportedMeetingService(
-    workspace_service=workspace_service,
-    transcript_service=transcript_service,
-    meeting_pipeline=meeting_pipeline,
+imported_meeting_service = (
+    ImportedMeetingService(
+        workspace_service=workspace_service,
+        transcript_service=transcript_service,
+        transcript_storage_service=(
+            transcript_storage_service
+        ),
+        meeting_pipeline=meeting_pipeline,
+    )
 )
 
 
@@ -330,4 +371,29 @@ container.register(
 container.register(
     "setup_controller",
     setup_controller,
+)
+
+container.register(
+    "meeting_report_prompt_formatter",
+    meeting_report_prompt_formatter,
+)
+
+container.register(
+    "meeting_report_service",
+    meeting_report_service,
+)
+
+container.register(
+    "meeting_report_validator",
+    meeting_report_validator,
+)
+
+container.register(
+    "meeting_report_generator",
+    meeting_report_generator,
+)
+
+container.register(
+    "meeting_report_markdown_exporter",
+    meeting_report_markdown_exporter,
 )

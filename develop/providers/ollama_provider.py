@@ -20,12 +20,13 @@ from providers.ai_provider import AIProvider
 
 class OllamaProvider(AIProvider):
 
+    PROVIDER_NAME = "Ollama"
+
     def __init__(
         self,
         model: str = OLLAMA_MODEL,
-        base_url: str = OLLAMA_URL
+        base_url: str = OLLAMA_URL,
     ):
-
         self.model = model
         self.base_url = base_url.rstrip("/")
 
@@ -37,47 +38,69 @@ class OllamaProvider(AIProvider):
             f"{self.base_url}/api/tags"
         )
 
-    def generate(self, prompt: str) -> str:
+    def generate(
+        self,
+        prompt: str,
+        output_schema: dict | None = None,
+    ) -> str:
+        """
+        Genera contenido JSON mediante Ollama.
 
-        summary_schema = {
-            "type": "object",
-            "properties": {
-                "title": {
-                    "type": "string"
-                },
-                "executive_summary": {
-                    "type": "string"
-                },
-                "key_points": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "minItems": 3,
-                    "maxItems": 5
-                }
-            },
-            "required": [
-                "title",
-                "executive_summary",
-                "key_points"
-            ]
-        }
+        El proveedor no conoce artefactos concretos como
+        Summary o MeetingReport.
+
+        Cuando recibe output_schema, utiliza dicho JSON
+        Schema como formato estructurado.
+
+        Cuando no recibe schema, exige únicamente una
+        respuesta JSON genérica.
+        """
+
+        if not isinstance(
+            prompt,
+            str,
+        ):
+            raise TypeError(
+                "prompt debe ser una cadena."
+            )
+
+        if not prompt.strip():
+            raise ValueError(
+                "prompt no puede estar vacío."
+            )
+
+        if (
+            output_schema is not None
+            and not isinstance(
+                output_schema,
+                dict,
+            )
+        ):
+            raise TypeError(
+                "output_schema debe ser un diccionario "
+                "o None."
+            )
+
+        response_format = (
+            output_schema
+            if output_schema is not None
+            else "json"
+        )
 
         response = requests.post(
             self.generate_url,
             json={
                 "model": self.model,
                 "prompt": prompt,
-                "format": summary_schema,
+                "format": response_format,
                 "stream": False,
                 "think": False,
                 "options": {
                     "temperature": 0.1,
-                    "num_ctx": 8192
-                }
+                    "num_ctx": 8192,
+                },
             },
-            timeout=REQUEST_TIMEOUT
+            timeout=REQUEST_TIMEOUT,
         )
 
         response.raise_for_status()
@@ -86,25 +109,25 @@ class OllamaProvider(AIProvider):
 
         generated_text = payload.get(
             "response",
-            ""
+            "",
         ).strip()
 
         if not generated_text:
-
             raise ValueError(
                 "Ollama devolvió una respuesta vacía."
             )
 
         return generated_text
 
-    def health(self) -> ProviderHealth:
-
+    def health(
+        self,
+    ) -> ProviderHealth:
         start_time = time.perf_counter()
 
         try:
             response = requests.get(
                 self.tags_url,
-                timeout=HEALTH_TIMEOUT
+                timeout=HEALTH_TIMEOUT,
             )
 
             response.raise_for_status()
@@ -120,7 +143,7 @@ class OllamaProvider(AIProvider):
                     time.perf_counter()
                     - start_time
                 ) * 1000,
-                2
+                2,
             )
 
             model_found = self._model_exists(
@@ -128,9 +151,8 @@ class OllamaProvider(AIProvider):
             )
 
             if not model_found:
-
                 return ProviderHealth(
-                    provider="Ollama",
+                    provider=self.PROVIDER_NAME,
                     connected=True,
                     model_found=False,
                     model=self.model,
@@ -144,7 +166,7 @@ class OllamaProvider(AIProvider):
                 )
 
             return ProviderHealth(
-                provider="Ollama",
+                provider=self.PROVIDER_NAME,
                 connected=True,
                 model_found=True,
                 model=self.model,
@@ -157,17 +179,16 @@ class OllamaProvider(AIProvider):
             )
 
         except Exception as ex:
-
             response_time_ms = round(
                 (
                     time.perf_counter()
                     - start_time
                 ) * 1000,
-                2
+                2,
             )
 
             return ProviderHealth(
-                provider="Ollama",
+                provider=self.PROVIDER_NAME,
                 connected=False,
                 model_found=False,
                 model=self.model,
@@ -181,9 +202,8 @@ class OllamaProvider(AIProvider):
 
     def _model_exists(
         self,
-        available_models: list[str]
+        available_models: list[str],
     ) -> bool:
-
         configured_model = (
             self.model
             .strip()
@@ -195,26 +215,33 @@ class OllamaProvider(AIProvider):
             for model in available_models
         }
 
-        return configured_model in normalized_models
+        return (
+            configured_model
+            in normalized_models
+        )
 
     @staticmethod
     def _extract_model_names(
-        payload: dict
+        payload: dict,
     ) -> list[str]:
-
         models = []
 
         for model_data in payload.get(
             "models",
-            []
+            [],
         ):
-
             model_name = (
-                model_data.get("name")
-                or model_data.get("model")
+                model_data.get(
+                    "name"
+                )
+                or model_data.get(
+                    "model"
+                )
             )
 
             if model_name:
-                models.append(model_name)
+                models.append(
+                    model_name
+                )
 
         return models

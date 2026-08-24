@@ -16,6 +16,7 @@ from models.recording_session import RecordingSession
 from services.transcript_storage_service import (
     TranscriptStorageService
 )
+from models.audio_source import AudioSource
 
 
 class ImportedMeetingService:
@@ -24,15 +25,17 @@ class ImportedMeetingService:
         self,
         workspace_service,
         transcript_service,
-        meeting_pipeline
-    ):
+        transcript_storage_service,
+        meeting_pipeline,
+        ):
 
         self.workspace_service = workspace_service
         self.transcript_service = transcript_service
+        self.transcript_storage_service = transcript_storage_service
         self.meeting_pipeline = meeting_pipeline
 
         self.transcript_storage = (
-            TranscriptStorageService()
+            transcript_storage_service
         )
 
     def import_wav(
@@ -71,7 +74,14 @@ class ImportedMeetingService:
 
         transcript = (
             self.transcript_service
-            .transcribe_microphone(session)
+            .transcribe_sources(
+                [
+                    AudioSource(
+                        file=workspace.meeting_audio,
+                        speaker="IMPORTED",
+                    )
+                ]
+            )
         )
 
         transcription_time = (

@@ -1,16 +1,13 @@
 """
 meeting_pipeline_service.py
 
-Orquestador del Knowledge Pipeline.
+Orquestador principal del Knowledge Pipeline.
 """
 
 from exceptions.insufficient_transcript_evidence_error import (
     InsufficientTranscriptEvidenceError,
 )
 from services.transcript_analyzer import TranscriptAnalyzer
-from services.transcript_prompt_formatter import (
-    TranscriptPromptFormatter,
-)
 from services.transcript_storage_service import (
     TranscriptStorageService,
 )
@@ -21,53 +18,51 @@ class MeetingPipelineService:
     """
     Ejecuta el Knowledge Pipeline de una reunión.
 
-    Mantiene compatibilidad temporal con el argumento
-    histórico `validator`, utilizado como SummaryValidator.
+    El pipeline coordina:
+
+    - carga del Transcript;
+    - análisis de evidencia;
+    - validación del Transcript;
+    - generación del artefacto principal;
+    - persistencia estructurada;
+    - exportación documental.
+
+    La lógica propia del artefacto pertenece al
+    ArtifactGenerator recibido.
     """
 
     def __init__(
         self,
-        summary_service,
-        validator=None,
-        storage_service=None,
-        markdown_exporter=None,
+        artifact_generator,
+        storage_service,
+        markdown_exporter,
         transcript_storage_service=None,
         transcript_analyzer=None,
         transcript_validator=None,
-        transcript_prompt_formatter=None,
-        summary_validator=None,
-    ):
-        self.summary_service = summary_service
+    ) -> None:
+        self.artifact_generator = artifact_generator
+
+        self.storage_service = storage_service
+
+        self.markdown_exporter = markdown_exporter
 
         self.transcript_storage_service = (
             transcript_storage_service
-            or TranscriptStorageService()
+            if transcript_storage_service is not None
+            else TranscriptStorageService()
         )
 
         self.transcript_analyzer = (
             transcript_analyzer
-            or TranscriptAnalyzer()
+            if transcript_analyzer is not None
+            else TranscriptAnalyzer()
         )
 
         self.transcript_validator = (
             transcript_validator
-            or TranscriptValidator()
+            if transcript_validator is not None
+            else TranscriptValidator()
         )
-
-        self.transcript_prompt_formatter = (
-            transcript_prompt_formatter
-            or TranscriptPromptFormatter()
-        )
-
-        # Compatibilidad temporal con:
-        # validator=SummaryValidator()
-        self.summary_validator = (
-            summary_validator
-            or validator
-        )
-
-        self.storage_service = storage_service
-        self.markdown_exporter = markdown_exporter
 
         self._validate_dependencies()
 
@@ -79,17 +74,16 @@ class MeetingPipelineService:
         Ejecuta el Knowledge Pipeline completo.
 
         Returns:
-            Summary:
-                Resumen validado y persistido.
+            Artefacto de dominio generado, validado,
+            persistido y exportado.
 
         Raises:
             InsufficientTranscriptEvidenceError:
                 Si el Transcript no contiene evidencia
-                suficiente.
+                suficiente para continuar.
 
-            ValueError:
-                Si el Summary generado no cumple las
-                reglas de validación.
+            También propaga cualquier error producido por
+            ArtifactGenerator, almacenamiento o exportación.
         """
 
         workspace = recording_session.workspace
@@ -110,58 +104,39 @@ class MeetingPipelineService:
 
         if not transcript_valid:
             raise InsufficientTranscriptEvidenceError(
-                "; ".join(transcript_errors)
+                "; ".join(
+                    transcript_errors
+                )
             )
 
-        transcript_text = (
-            self.transcript_prompt_formatter.format(
-                transcript
-            )
+        artifact = self.artifact_generator.generate(
+            transcript
         )
-
-        summary = self.summary_service.generate(
-            transcript_text
-        )
-
-        summary_valid, summary_errors = (
-            self.summary_validator.validate(
-                summary
-            )
-        )
-
-        if not summary_valid:
-            raise ValueError(
-                "Summary inválido: "
-                + "; ".join(summary_errors)
-            )
 
         self.storage_service.save(
-            summary,
-            workspace.summary_json,
+            artifact,
+            workspace.meeting_report_json,
         )
 
         self.markdown_exporter.export(
-            summary,
-            workspace.summary_markdown,
+            artifact,
+            workspace.meeting_report_markdown,
         )
 
-        return summary
+        return artifact
 
-    def _validate_dependencies(self) -> None:
+    def _validate_dependencies(
+        self,
+    ) -> None:
         """
         Verifica las dependencias obligatorias del pipeline.
         """
 
         missing_dependencies = []
 
-        if self.summary_service is None:
+        if self.artifact_generator is None:
             missing_dependencies.append(
-                "summary_service"
-            )
-
-        if self.summary_validator is None:
-            missing_dependencies.append(
-                "summary_validator"
+                "artifact_generator"
             )
 
         if self.storage_service is None:
@@ -178,5 +153,7 @@ class MeetingPipelineService:
             raise ValueError(
                 "Faltan dependencias obligatorias en "
                 "MeetingPipelineService: "
-                + ", ".join(missing_dependencies)
+                + ", ".join(
+                    missing_dependencies
+                )
             )

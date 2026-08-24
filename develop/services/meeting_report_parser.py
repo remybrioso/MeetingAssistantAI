@@ -252,6 +252,10 @@ class MeetingReportParser:
     ) -> list[MeetingTopic]:
         """
         Convierte diccionarios en MeetingTopic.
+
+        Los placeholders sin contenido semántico se ignoran.
+        Un elemento parcialmente informado continúa siendo
+        validado por el dominio y puede ser rechazado.
         """
 
         self._validate_list_field(
@@ -281,10 +285,19 @@ class MeetingReportParser:
                 },
             )
 
+            title = item["title"]
+            summary = item["summary"]
+
+            if (
+                self._is_blank_text(title)
+                and self._is_blank_text(summary)
+            ):
+                continue
+
             topics.append(
                 MeetingTopic(
-                    title=item["title"],
-                    summary=item["summary"],
+                    title=title,
+                    summary=summary,
                     evidence=self._parse_evidence(
                         item.get(
                             "evidence",
@@ -345,6 +358,9 @@ class MeetingReportParser:
     ) -> list[Decision]:
         """
         Convierte diccionarios en Decision.
+
+        Una decisión completamente vacía se considera un
+        placeholder del proveedor y se ignora.
         """
 
         self._validate_list_field(
@@ -373,14 +389,23 @@ class MeetingReportParser:
                 },
             )
 
+            description = item["description"]
+            rationale = item.get(
+                "rationale"
+            )
+
+            if (
+                self._is_blank_text(description)
+                and self._is_blank_optional_text(
+                    rationale
+                )
+            ):
+                continue
+
             decisions.append(
                 Decision(
-                    description=item[
-                        "description"
-                    ],
-                    rationale=item.get(
-                        "rationale"
-                    ),
+                    description=description,
+                    rationale=rationale,
                     evidence=self._parse_evidence(
                         item.get(
                             "evidence",
@@ -410,6 +435,9 @@ class MeetingReportParser:
             "status": str | null,
             "evidence": list
         }
+
+        Una acción completamente vacía se considera un
+        placeholder del proveedor y se ignora.
         """
 
         self._validate_list_field(
@@ -438,27 +466,32 @@ class MeetingReportParser:
                 },
             )
 
+            description = item["description"]
+            owner = item.get("owner")
+            due_date = item.get("due_date")
+            status = item.get("status")
+
+            if self._is_empty_action_placeholder(
+                description=description,
+                owner=owner,
+                due_date=due_date,
+                status=status,
+            ):
+                continue
+
             action_items.append(
                 ActionItem(
-                    description=item[
-                        "description"
-                    ],
+                    description=description,
                     owner=self._parse_action_owner(
-                        item.get(
-                            "owner"
-                        ),
+                        owner,
                         action_index=index,
                     ),
                     due_date=self._parse_due_date(
-                        item.get(
-                            "due_date"
-                        ),
+                        due_date,
                         action_index=index,
                     ),
                     status=self._parse_action_status(
-                        item.get(
-                            "status"
-                        ),
+                        status,
                         action_index=index,
                     ),
                     evidence=self._parse_evidence(
@@ -609,6 +642,9 @@ class MeetingReportParser:
     ) -> list[MeetingRisk]:
         """
         Convierte diccionarios en MeetingRisk.
+
+        Un riesgo completamente vacío se considera un
+        placeholder del proveedor y se ignora.
         """
 
         self._validate_list_field(
@@ -637,14 +673,19 @@ class MeetingReportParser:
                 },
             )
 
+            description = item["description"]
+            impact = item.get("impact")
+
+            if (
+                self._is_blank_text(description)
+                and self._is_blank_optional_text(impact)
+            ):
+                continue
+
             risks.append(
                 MeetingRisk(
-                    description=item[
-                        "description"
-                    ],
-                    impact=item.get(
-                        "impact"
-                    ),
+                    description=description,
+                    impact=impact,
                     evidence=self._parse_evidence(
                         item.get(
                             "evidence",
@@ -664,6 +705,9 @@ class MeetingReportParser:
     ) -> list[PendingItem]:
         """
         Convierte diccionarios en PendingItem.
+
+        Un pendiente sin descripción se considera un
+        placeholder del proveedor y se ignora.
         """
 
         self._validate_list_field(
@@ -692,11 +736,14 @@ class MeetingReportParser:
                 },
             )
 
+            description = item["description"]
+
+            if self._is_blank_text(description):
+                continue
+
             pending_items.append(
                 PendingItem(
-                    description=item[
-                        "description"
-                    ],
+                    description=description,
                     evidence=self._parse_evidence(
                         item.get(
                             "evidence",
@@ -790,6 +837,90 @@ class MeetingReportParser:
             )
 
         return evidence_items
+
+    @staticmethod
+    def _is_blank_text(
+        value,
+    ) -> bool:
+        """
+        Indica si un valor textual obligatorio está vacío.
+
+        Los tipos distintos de str no se consideran vacíos:
+        serán rechazados posteriormente por el dominio.
+        """
+
+        return (
+            isinstance(value, str)
+            and not value.strip()
+        )
+
+    @staticmethod
+    def _is_blank_optional_text(
+        value,
+    ) -> bool:
+        """
+        Indica si un texto opcional no contiene información.
+        """
+
+        return (
+            value is None
+            or (
+                isinstance(value, str)
+                and not value.strip()
+            )
+        )
+
+    @classmethod
+    def _is_empty_action_placeholder(
+        cls,
+        description,
+        owner,
+        due_date,
+        status,
+    ) -> bool:
+        """
+        Detecta una acción creada únicamente como placeholder.
+
+        Evidence no participa en esta decisión porque una
+        referencia puede existir aunque el modelo no haya
+        identificado una acción semántica válida.
+        """
+
+        description_empty = cls._is_blank_text(
+            description
+        )
+
+        owner_empty = (
+            owner is None
+            or (
+                isinstance(owner, str)
+                and not owner.strip()
+            )
+        )
+
+        due_date_empty = (
+            due_date is None
+            or (
+                isinstance(due_date, str)
+                and not due_date.strip()
+            )
+        )
+
+        status_empty = (
+            status is None
+            or (
+                isinstance(status, str)
+                and status.strip().lower()
+                in {"", "unknown"}
+            )
+        )
+
+        return (
+            description_empty
+            and owner_empty
+            and due_date_empty
+            and status_empty
+        )
 
     @staticmethod
     def _validate_list_field(

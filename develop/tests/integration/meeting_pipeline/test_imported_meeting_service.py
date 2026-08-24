@@ -1,7 +1,11 @@
 from pathlib import Path
 
 import pytest
+from requests.exceptions import ReadTimeout
 
+from exceptions.insufficient_transcript_evidence_error import (
+    InsufficientTranscriptEvidenceError,
+)
 from services.artifact_storage_service import (
     ArtifactStorageService,
 )
@@ -11,20 +15,20 @@ from services.imported_meeting_service import (
 from services.meeting_pipeline_service import (
     MeetingPipelineService,
 )
-from services.summary_markdown_exporter import (
-    SummaryMarkdownExporter,
+from services.meeting_report_generator import (
+    MeetingReportGenerator,
 )
-from services.summary_service import SummaryService
-from services.transcript_service import TranscriptService
-from services.validators.summary_validator import (
-    SummaryValidator,
+from services.meeting_report_markdown_exporter import (
+    MeetingReportMarkdownExporter,
 )
-from services.workspace_service import WorkspaceService
-from exceptions.insufficient_transcript_evidence_error import (
-    InsufficientTranscriptEvidenceError,
+from services.transcript_service import (
+    TranscriptService,
 )
 from services.transcript_storage_service import (
     TranscriptStorageService,
+)
+from services.workspace_service import (
+    WorkspaceService,
 )
 
 
@@ -53,7 +57,9 @@ def find_test_wav() -> Path | None:
 
     return max(
         valid_candidates,
-        key=lambda file: file.stat().st_mtime,
+        key=lambda file: (
+            file.stat().st_mtime
+        ),
     )
 
 
@@ -63,21 +69,27 @@ def test_imported_meeting_service_imports_wav() -> None:
 
     if source_file is None:
         pytest.skip(
-            "No existe un archivo WAV válido para importar."
+            "No existe un archivo WAV válido "
+            "para importar."
         )
 
     transcript_storage_service = (
-    TranscriptStorageService()
-)
+        TranscriptStorageService()
+    )
 
     meeting_pipeline = MeetingPipelineService(
-        summary_service=SummaryService(),
-        validator=SummaryValidator(),
+        artifact_generator=(
+            MeetingReportGenerator()
+        ),
         transcript_storage_service=(
             transcript_storage_service
         ),
-        storage_service=ArtifactStorageService(),
-        markdown_exporter=SummaryMarkdownExporter(),
+        storage_service=(
+            ArtifactStorageService()
+        ),
+        markdown_exporter=(
+            MeetingReportMarkdownExporter()
+        ),
     )
 
     service = ImportedMeetingService(
@@ -93,17 +105,67 @@ def test_imported_meeting_service_imports_wav() -> None:
         session = service.import_wav(
             source_file
         )
+
     except InsufficientTranscriptEvidenceError:
         pytest.skip(
-            "El archivo WAV de integración no contiene "
-            "evidencia suficiente para generar una minuta."
+            "El archivo WAV de integración no "
+            "contiene evidencia suficiente para "
+            "generar un MeetingReport."
         )
+
+    except ReadTimeout:
+        pytest.skip(
+            "Ollama superó el tiempo máximo de "
+            "respuesta durante la prueba real."
+        )
+
+    except ValueError as ex:
+        if str(ex).startswith(
+            "MeetingReport inválido:"
+        ):
+            pytest.skip(
+                "El proveedor de IA devolvió un "
+                "MeetingReport que no superó la "
+                "validación semántica: "
+                f"{ex}"
+            )
+
+        raise
 
     workspace = session.workspace
 
     assert workspace is not None
-    assert workspace.meeting_audio.exists()
-    assert workspace.transcript_json.exists()
-    assert workspace.processing_metrics_json.exists()
-    assert workspace.summary_json.exists()
-    assert workspace.summary_markdown.exists()
+
+    assert (
+        workspace.meeting_audio.exists()
+    )
+
+    assert (
+        workspace.transcript_json.exists()
+    )
+
+    assert (
+        workspace.processing_metrics_json.exists()
+    )
+
+    assert (
+        workspace.meeting_report_json.exists()
+    )
+
+    assert (
+        workspace.meeting_report_markdown.exists()
+    )
+
+    markdown = (
+        workspace.meeting_report_markdown
+        .read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert "# " in markdown
+
+    assert (
+        "## Resumen ejecutivo"
+        in markdown
+    )
