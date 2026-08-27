@@ -1,70 +1,96 @@
 """
 meeting_report_generator.py
 
-Generador de MeetingReport a partir de un Transcript.
+Generador de MeetingReport a partir de un Transcript completo
+mediante extracción por chunks y consolidación global.
 """
 
 from models.artifacts.meeting_report import MeetingReport
 from models.prompt import Prompt
 from models.transcript import Transcript
 from services.artifact_generator import ArtifactGenerator
-from services.meeting_report_service import (
-    MeetingReportService,
+from services.chunk_knowledge_service import ChunkKnowledgeService
+from services.chunk_prompt_formatter import ChunkPromptFormatter
+from services.meeting_knowledge_assembler import (
+    MeetingKnowledgeAssembler,
 )
-from services.transcript_prompt_formatter import (
-    TranscriptPromptFormatter,
+from services.meeting_knowledge_prompt_formatter import (
+    MeetingKnowledgePromptFormatter,
 )
-from services.validators.meeting_report_validator import (
-    MeetingReportValidator,
+from services.meeting_report_consolidation_service import (
+    MeetingReportConsolidationService,
 )
+from services.transcript_chunker import TranscriptChunker
 
 
 class MeetingReportGenerator(
     ArtifactGenerator
 ):
     """
-    Orquesta la generación completa de un MeetingReport.
+    Orquesta la generación global de un MeetingReport.
 
-    Responsabilidades:
+    Flujo:
 
-    - recibir un Transcript;
-    - construir el Prompt usando meeting_report_v1;
-    - generar el MeetingReport;
-    - realizar un segundo intento correctivo si el primero
-      falla por contenido inválido;
-    - validar su calidad semántica;
-    - devolver únicamente un artefacto válido.
+    Transcript
+        -> TranscriptChunker
+        -> N x ChunkKnowledge
+        -> MeetingKnowledge
+        -> Prompt de consolidación
+        -> MeetingReport
+
+    La extracción de cada chunk ocurre exactamente una vez por
+    ejecución. Si la consolidación final falla por contenido
+    inválido, se permite un segundo intento correctivo utilizando
+    el mismo MeetingKnowledge ya extraído.
 
     No realiza persistencia ni exportación.
     """
 
-    CONTRACT = "meeting_report_v1"
-    MAX_GENERATION_ATTEMPTS = 2
+    MAX_CONSOLIDATION_ATTEMPTS = 2
 
     def __init__(
         self,
-        prompt_formatter=None,
-        meeting_report_service=None,
-        validator=None,
+        transcript_chunker=None,
+        chunk_prompt_formatter=None,
+        chunk_knowledge_service=None,
+        meeting_knowledge_assembler=None,
+        consolidation_prompt_formatter=None,
+        consolidation_service=None,
     ) -> None:
-        self.prompt_formatter = (
-            prompt_formatter
-            if prompt_formatter is not None
-            else TranscriptPromptFormatter(
-                contract=self.CONTRACT
-            )
+        self.transcript_chunker = (
+            transcript_chunker
+            if transcript_chunker is not None
+            else TranscriptChunker()
         )
 
-        self.meeting_report_service = (
-            meeting_report_service
-            if meeting_report_service is not None
-            else MeetingReportService()
+        self.chunk_prompt_formatter = (
+            chunk_prompt_formatter
+            if chunk_prompt_formatter is not None
+            else ChunkPromptFormatter()
         )
 
-        self.validator = (
-            validator
-            if validator is not None
-            else MeetingReportValidator()
+        self.chunk_knowledge_service = (
+            chunk_knowledge_service
+            if chunk_knowledge_service is not None
+            else ChunkKnowledgeService()
+        )
+
+        self.meeting_knowledge_assembler = (
+            meeting_knowledge_assembler
+            if meeting_knowledge_assembler is not None
+            else MeetingKnowledgeAssembler()
+        )
+
+        self.consolidation_prompt_formatter = (
+            consolidation_prompt_formatter
+            if consolidation_prompt_formatter is not None
+            else MeetingKnowledgePromptFormatter()
+        )
+
+        self.consolidation_service = (
+            consolidation_service
+            if consolidation_service is not None
+            else MeetingReportConsolidationService()
         )
 
     def generate(
@@ -72,26 +98,14 @@ class MeetingReportGenerator(
         transcript: Transcript,
     ) -> MeetingReport:
         """
-        Genera y valida un MeetingReport.
-
-        El primer intento utiliza el Prompt original.
-
-        Si el contenido producido no puede convertirse en
-        MeetingReport o no supera la validación semántica,
-        el segundo intento añade instrucciones correctivas
-        concretas al mismo Prompt.
+        Genera un MeetingReport con cobertura de toda la reunión.
 
         Los errores de infraestructura del proveedor no se
         capturan aquí y continúan propagándose.
 
-        Raises:
-            TypeError:
-                Si transcript no es una instancia de
-                Transcript.
-
-            ValueError:
-                Si ambos intentos producen contenido
-                inválido.
+        Los ValueError producidos durante extracción por chunk
+        también se propagan inmediatamente. Solo la consolidación
+        final dispone de un segundo intento correctivo.
         """
 
         if not isinstance(
@@ -99,12 +113,57 @@ class MeetingReportGenerator(
             Transcript,
         ):
             raise TypeError(
-                "transcript debe ser una instancia "
-                "de Transcript."
+                "transcript debe ser una instancia de Transcript."
             )
 
-        base_prompt = self.prompt_formatter.format(
+        chunks = self.transcript_chunker.chunk(
             transcript
+        )
+
+        if not chunks:
+            raise ValueError(
+                "Transcript no produjo chunks analizables."
+            )
+
+        chunk_knowledge = []
+
+        for chunk in chunks:
+            chunk_prompt = (
+                self.chunk_prompt_formatter.format(
+                    chunk
+                )
+            )
+
+            knowledge = (
+                self.chunk_knowledge_service.generate(
+                    prompt=chunk_prompt,
+                    chunk=chunk,
+                )
+            )
+
+            chunk_knowledge.append(
+                knowledge
+            )
+
+        meeting_knowledge = (
+            self.meeting_knowledge_assembler.assemble(
+                chunks=chunk_knowledge,
+                source_chunk_count=len(
+                    chunks
+                ),
+            )
+        )
+
+        if not meeting_knowledge.has_content:
+            raise ValueError(
+                "MeetingKnowledge no contiene conocimiento "
+                "suficiente para generar un MeetingReport."
+            )
+
+        base_prompt = (
+            self.consolidation_prompt_formatter.format(
+                meeting_knowledge
+            )
         )
 
         current_prompt = base_prompt
@@ -112,22 +171,23 @@ class MeetingReportGenerator(
 
         for attempt in range(
             1,
-            self.MAX_GENERATION_ATTEMPTS + 1,
+            self.MAX_CONSOLIDATION_ATTEMPTS + 1,
         ):
             try:
-                report = (
-                    self.meeting_report_service.generate(
-                        current_prompt
-                    )
+                return self.consolidation_service.generate(
+                    prompt=current_prompt,
+                    meeting_knowledge=meeting_knowledge,
                 )
             except ValueError as ex:
                 last_errors = [
-                    str(ex)
+                    str(
+                        ex
+                    )
                 ]
 
                 if (
                     attempt
-                    < self.MAX_GENERATION_ATTEMPTS
+                    < self.MAX_CONSOLIDATION_ATTEMPTS
                 ):
                     current_prompt = (
                         self._build_corrective_prompt(
@@ -136,30 +196,9 @@ class MeetingReportGenerator(
                         )
                     )
 
-                continue
-
-            valid, errors = self.validator.validate(
-                report
-            )
-
-            if valid:
-                return report
-
-            last_errors = errors
-
-            if (
-                attempt
-                < self.MAX_GENERATION_ATTEMPTS
-            ):
-                current_prompt = (
-                    self._build_corrective_prompt(
-                        base_prompt=base_prompt,
-                        errors=last_errors,
-                    )
-                )
-
         raise ValueError(
-            "MeetingReport inválido: "
+            "MeetingReport inválido después de la "
+            "consolidación: "
             + "; ".join(
                 last_errors
             )
@@ -171,11 +210,11 @@ class MeetingReportGenerator(
         errors: list[str],
     ) -> Prompt:
         """
-        Construye el Prompt del segundo intento.
+        Construye el segundo Prompt de consolidación.
 
-        Conserva íntegramente el contrato y la transcripción
-        originales, pero añade feedback explícito sobre los
-        defectos detectados en la generación anterior.
+        Conserva íntegramente MeetingKnowledge y el contrato
+        original. Solo añade feedback específico de la generación
+        final rechazada.
         """
 
         if not isinstance(
@@ -183,8 +222,15 @@ class MeetingReportGenerator(
             Prompt,
         ):
             raise TypeError(
-                "base_prompt debe ser una instancia "
-                "de Prompt."
+                "base_prompt debe ser una instancia de Prompt."
+            )
+
+        if not isinstance(
+            errors,
+            list,
+        ):
+            raise TypeError(
+                "errors debe ser una lista."
             )
 
         error_text = "\n".join(
@@ -194,29 +240,37 @@ class MeetingReportGenerator(
 
         correction = f"""
 
-INSTRUCCIONES CORRECTIVAS PARA ESTE NUEVO INTENTO
+INSTRUCCIONES CORRECTIVAS PARA LA CONSOLIDACIÓN
 
-La generación anterior fue rechazada por los siguientes
+La generación global anterior fue rechazada por los siguientes
 problemas:
 
 {error_text}
 
-Genera nuevamente TODO el documento desde cero.
+Genera nuevamente TODO el MeetingReport desde cero utilizando
+exclusivamente el MeetingKnowledge incluido en este Prompt.
 
-Reglas obligatorias para este intento:
+Reglas obligatorias para este nuevo intento:
 
+- No inventes hechos ausentes de MeetingKnowledge.
+- No inventes ni modifiques evidencias.
+- Para topics, decisions, action_items, risks y pending_items,
+  utiliza únicamente referencias de evidencia ya presentes en la
+  misma categoría semántica de MeetingKnowledge.
+- Conserva exactamente speaker, start, end y excerpt de cada
+  evidencia utilizada.
+- No conviertas topics o posibilidades en decisiones, acciones,
+  riesgos o pendientes.
+- No inventes owner, due_date ni status de acciones.
 - No devuelvas cadenas vacías en campos obligatorios.
-- El campo title debe contener un título descriptivo y
-  específico de la reunión.
-- executive_summary debe explicar de forma suficiente lo
-  tratado en la reunión.
-- key_points debe contener al menos un punto relevante.
-- No inventes hechos que no estén respaldados por la
-  transcripción.
-- Si una sección opcional no tiene información suficiente,
-  utiliza una lista vacía en lugar de crear objetos vacíos.
+- title debe ser descriptivo y representar la reunión completa.
+- executive_summary debe representar conocimiento relevante del
+  conjunto completo de chunks.
+- key_points debe contener al menos un punto global relevante.
+- Si una sección opcional no tiene información suficiente, utiliza
+  una lista vacía.
 - Respeta exactamente el JSON Schema solicitado.
-- Devuelve únicamente el objeto JSON estructurado requerido.
+- Devuelve únicamente el objeto JSON requerido.
 """
 
         return Prompt(

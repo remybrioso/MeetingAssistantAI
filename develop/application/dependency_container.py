@@ -19,6 +19,12 @@ from services.artifact_storage_service import (
     ArtifactStorageService,
 )
 from services.audio_capture_service import AudioCaptureService
+from services.chunk_knowledge_service import (
+    ChunkKnowledgeService,
+)
+from services.chunk_prompt_formatter import (
+    ChunkPromptFormatter,
+)
 from services.configuration_service import ConfigurationService
 from services.imported_meeting_service import (
     ImportedMeetingService,
@@ -27,8 +33,23 @@ from services.logger_service import LoggerService
 from services.meeting_finalization_service import (
     MeetingFinalizationService,
 )
+from services.meeting_knowledge_assembler import (
+    MeetingKnowledgeAssembler,
+)
+from services.meeting_knowledge_prompt_formatter import (
+    MeetingKnowledgePromptFormatter,
+)
 from services.meeting_pipeline_service import (
     MeetingPipelineService,
+)
+from services.meeting_report_consolidation_service import (
+    MeetingReportConsolidationService,
+)
+from services.meeting_report_generator import (
+    MeetingReportGenerator,
+)
+from services.meeting_report_markdown_exporter import (
+    MeetingReportMarkdownExporter,
 )
 from services.meeting_timer import MeetingTimer
 from services.setup.capabilities.capability_runner import (
@@ -46,6 +67,7 @@ from services.summary_markdown_exporter import (
 from services.summary_service import SummaryService
 from services.task_runner import TaskRunner
 from services.transcript_analyzer import TranscriptAnalyzer
+from services.transcript_chunker import TranscriptChunker
 from services.transcript_prompt_formatter import (
     TranscriptPromptFormatter,
 )
@@ -54,20 +76,11 @@ from services.transcript_storage_service import (
     TranscriptStorageService,
 )
 from services.transcript_validator import TranscriptValidator
-from services.validators.summary_validator import SummaryValidator
-from services.workspace_service import WorkspaceService
-from services.meeting_report_generator import (
-    MeetingReportGenerator,
-)
-from services.meeting_report_markdown_exporter import (
-    MeetingReportMarkdownExporter,
-)
-from services.meeting_report_service import (
-    MeetingReportService,
-)
 from services.validators.meeting_report_validator import (
     MeetingReportValidator,
 )
+from services.validators.summary_validator import SummaryValidator
+from services.workspace_service import WorkspaceService
 
 
 class DependencyContainer:
@@ -137,36 +150,63 @@ transcript_validator = TranscriptValidator()
 transcript_prompt_formatter = TranscriptPromptFormatter()
 
 
-# Servicios de resumen
+# Servicios de resumen legacy
 summary_service = SummaryService()
 summary_validator = SummaryValidator()
 artifact_storage_service = ArtifactStorageService()
 summary_markdown_exporter = SummaryMarkdownExporter()
 
-# Servicios de MeetingReport
-meeting_report_prompt_formatter = (
-    TranscriptPromptFormatter(
-        contract="meeting_report_v1"
+
+# Meeting Intelligence: extracción por chunks
+transcript_chunker = TranscriptChunker()
+
+chunk_prompt_formatter = ChunkPromptFormatter()
+
+chunk_knowledge_service = ChunkKnowledgeService()
+
+meeting_knowledge_assembler = (
+    MeetingKnowledgeAssembler()
+)
+
+
+# Meeting Intelligence: consolidación global
+meeting_knowledge_prompt_formatter = (
+    MeetingKnowledgePromptFormatter()
+)
+
+meeting_report_validator = (
+    MeetingReportValidator()
+)
+
+meeting_report_consolidation_service = (
+    MeetingReportConsolidationService(
+        report_validator=meeting_report_validator,
     )
 )
 
-meeting_report_service = MeetingReportService()
-
-meeting_report_validator = MeetingReportValidator()
-
 meeting_report_generator = MeetingReportGenerator(
-    prompt_formatter=(
-        meeting_report_prompt_formatter
+    transcript_chunker=transcript_chunker,
+    chunk_prompt_formatter=(
+        chunk_prompt_formatter
     ),
-    meeting_report_service=(
-        meeting_report_service
+    chunk_knowledge_service=(
+        chunk_knowledge_service
     ),
-    validator=meeting_report_validator,
+    meeting_knowledge_assembler=(
+        meeting_knowledge_assembler
+    ),
+    consolidation_prompt_formatter=(
+        meeting_knowledge_prompt_formatter
+    ),
+    consolidation_service=(
+        meeting_report_consolidation_service
+    ),
 )
 
 meeting_report_markdown_exporter = (
     MeetingReportMarkdownExporter()
 )
+
 
 # Knowledge Pipeline
 meeting_pipeline = MeetingPipelineService(
@@ -344,6 +384,51 @@ container.register(
 )
 
 container.register(
+    "transcript_chunker",
+    transcript_chunker,
+)
+
+container.register(
+    "chunk_prompt_formatter",
+    chunk_prompt_formatter,
+)
+
+container.register(
+    "chunk_knowledge_service",
+    chunk_knowledge_service,
+)
+
+container.register(
+    "meeting_knowledge_assembler",
+    meeting_knowledge_assembler,
+)
+
+container.register(
+    "meeting_knowledge_prompt_formatter",
+    meeting_knowledge_prompt_formatter,
+)
+
+container.register(
+    "meeting_report_validator",
+    meeting_report_validator,
+)
+
+container.register(
+    "meeting_report_consolidation_service",
+    meeting_report_consolidation_service,
+)
+
+container.register(
+    "meeting_report_generator",
+    meeting_report_generator,
+)
+
+container.register(
+    "meeting_report_markdown_exporter",
+    meeting_report_markdown_exporter,
+)
+
+container.register(
     "meeting_pipeline",
     meeting_pipeline,
 )
@@ -371,29 +456,4 @@ container.register(
 container.register(
     "setup_controller",
     setup_controller,
-)
-
-container.register(
-    "meeting_report_prompt_formatter",
-    meeting_report_prompt_formatter,
-)
-
-container.register(
-    "meeting_report_service",
-    meeting_report_service,
-)
-
-container.register(
-    "meeting_report_validator",
-    meeting_report_validator,
-)
-
-container.register(
-    "meeting_report_generator",
-    meeting_report_generator,
-)
-
-container.register(
-    "meeting_report_markdown_exporter",
-    meeting_report_markdown_exporter,
 )

@@ -1,32 +1,152 @@
 import pytest
 
 from models.artifacts.meeting_report import MeetingReport
+from models.chunk_knowledge import ChunkKnowledge
+from models.meeting_knowledge import MeetingKnowledge
 from models.prompt import Prompt
-from models.transcript import Transcript
+from models.transcript import Segment, Transcript
+from models.transcript_chunk import TranscriptChunk
 from services.meeting_report_generator import (
     MeetingReportGenerator,
 )
 
 
-class FakePromptFormatter:
+class FakeTranscriptChunker:
+    def __init__(
+        self,
+        chunks,
+    ) -> None:
+        self.chunks = list(
+            chunks
+        )
+        self.calls = 0
+        self.received_transcript = None
 
+    def chunk(
+        self,
+        transcript,
+    ):
+        self.calls += 1
+        self.received_transcript = transcript
+        return list(
+            self.chunks
+        )
+
+
+class FakeChunkPromptFormatter:
+    def __init__(self) -> None:
+        self.received_chunks = []
+
+    def format(
+        self,
+        chunk,
+    ) -> Prompt:
+        self.received_chunks.append(
+            chunk
+        )
+        return Prompt(
+            content=(
+                f"Prompt chunk {chunk.index}"
+            ),
+            version="chunk_knowledge_v1",
+        )
+
+
+class FakeChunkKnowledgeService:
+    def __init__(
+        self,
+        results,
+        error_at_index=None,
+        error=None,
+    ) -> None:
+        self.results = dict(
+            results
+        )
+        self.error_at_index = (
+            error_at_index
+        )
+        self.error = error
+        self.calls = []
+
+    def generate(
+        self,
+        prompt,
+        chunk,
+    ):
+        self.calls.append(
+            (
+                prompt,
+                chunk,
+            )
+        )
+
+        if (
+            self.error_at_index
+            == chunk.index
+        ):
+            raise (
+                self.error
+                if self.error is not None
+                else ValueError(
+                    "chunk inválido"
+                )
+            )
+
+        return self.results[
+            chunk.index
+        ]
+
+
+class FakeMeetingKnowledgeAssembler:
+    def __init__(
+        self,
+        result,
+    ) -> None:
+        self.result = result
+        self.calls = 0
+        self.received_chunks = None
+        self.received_source_chunk_count = None
+
+    def assemble(
+        self,
+        chunks,
+        source_chunk_count,
+    ):
+        self.calls += 1
+        self.received_chunks = list(
+            chunks
+        )
+        self.received_source_chunk_count = (
+            source_chunk_count
+        )
+        return self.result
+
+
+class FakeConsolidationPromptFormatter:
     def __init__(self) -> None:
         self.calls = 0
+        self.received_knowledge = None
         self.prompt = Prompt(
-            content="Prompt original de prueba.",
-            version="meeting_report_v1",
+            content=(
+                "Prompt global."
+            ),
+            version=(
+                "meeting_report_consolidation_v1"
+            ),
         )
 
     def format(
         self,
-        transcript,
-    ) -> Prompt:
+        meeting_knowledge,
+    ):
         self.calls += 1
+        self.received_knowledge = (
+            meeting_knowledge
+        )
         return self.prompt
 
 
-class FakeMeetingReportService:
-
+class FakeConsolidationService:
     def __init__(
         self,
         results,
@@ -36,13 +156,18 @@ class FakeMeetingReportService:
         )
         self.calls = 0
         self.received_prompts = []
+        self.received_knowledge = []
 
     def generate(
         self,
         prompt,
+        meeting_knowledge,
     ):
         self.received_prompts.append(
             prompt
+        )
+        self.received_knowledge.append(
+            meeting_knowledge
         )
 
         result = self.results[
@@ -59,276 +184,478 @@ class FakeMeetingReportService:
         return result
 
 
-class FakeValidator:
-
-    def __init__(
-        self,
-        results,
-    ) -> None:
-        self.results = list(
-            results
-        )
-        self.calls = 0
-
-    def validate(
-        self,
-        report,
-    ):
-        result = self.results[
-            self.calls
-        ]
-        self.calls += 1
-        return result
-
-
 def build_transcript() -> Transcript:
-    return Transcript()
+    transcript = Transcript()
+
+    transcript.add_segment(
+        Segment(
+            start=0.0,
+            end=5.0,
+            speaker="LOCAL",
+            text=(
+                "Se revisó el estado inicial "
+                "del proyecto."
+            ),
+        )
+    )
+
+    transcript.add_segment(
+        Segment(
+            start=5.0,
+            end=10.0,
+            speaker="REMOTE",
+            text=(
+                "Se acordó continuar "
+                "con las pruebas."
+            ),
+        )
+    )
+
+    return transcript
+
+
+def build_chunks() -> list[TranscriptChunk]:
+    return [
+        TranscriptChunk(
+            index=0,
+            segments=[
+                Segment(
+                    start=0.0,
+                    end=5.0,
+                    speaker="LOCAL",
+                    text=(
+                        "Se revisó el estado inicial "
+                        "del proyecto."
+                    ),
+                ),
+            ],
+        ),
+        TranscriptChunk(
+            index=1,
+            segments=[
+                Segment(
+                    start=5.0,
+                    end=10.0,
+                    speaker="REMOTE",
+                    text=(
+                        "Se acordó continuar "
+                        "con las pruebas."
+                    ),
+                ),
+            ],
+        ),
+    ]
+
+
+def build_chunk_knowledge():
+    return {
+        0: ChunkKnowledge(
+            chunk_index=0,
+            start=0.0,
+            end=5.0,
+            key_points=[
+                (
+                    "Se revisó el estado inicial "
+                    "del proyecto."
+                ),
+            ],
+        ),
+        1: ChunkKnowledge(
+            chunk_index=1,
+            start=5.0,
+            end=10.0,
+            conclusions=[
+                (
+                    "Se continuará con las pruebas."
+                ),
+            ],
+        ),
+    }
+
+
+def build_meeting_knowledge() -> MeetingKnowledge:
+    values = build_chunk_knowledge()
+
+    return MeetingKnowledge(
+        source_chunk_count=2,
+        chunks=[
+            values[0],
+            values[1],
+        ],
+    )
 
 
 def build_report() -> MeetingReport:
     return MeetingReport(
         artifact_type="meeting_report",
         provider="ollama",
-        model="qwen2.5:3b",
-        prompt_version="meeting_report_v1",
-        title="Reunión técnica",
+        model="fake-model",
+        prompt_version=(
+            "meeting_report_consolidation_v1"
+        ),
+        title=(
+            "Seguimiento y continuidad del proyecto"
+        ),
         executive_summary=(
-            "Se revisó el estado general del proyecto "
-            "y se acordaron los próximos pasos."
+            "Se revisó el estado inicial del proyecto "
+            "y se confirmó la continuidad de las pruebas."
         ),
         key_points=[
-            "Se revisó el estado general del proyecto.",
+            (
+                "Se revisó el estado inicial "
+                "del proyecto."
+            ),
         ],
     )
 
 
-def test_generator_returns_valid_report_on_first_attempt() -> None:
-    report = build_report()
-
-    formatter = FakePromptFormatter()
-    service = FakeMeetingReportService(
-        [
-            report,
-        ]
+def build_generator(
+    consolidation_results=None,
+):
+    chunks = build_chunks()
+    knowledge_values = (
+        build_chunk_knowledge()
     )
-    validator = FakeValidator(
-        [
-            (
-                True,
-                [],
-            ),
-        ]
+    meeting_knowledge = (
+        build_meeting_knowledge()
+    )
+
+    chunker = FakeTranscriptChunker(
+        chunks
+    )
+    chunk_formatter = (
+        FakeChunkPromptFormatter()
+    )
+    chunk_service = (
+        FakeChunkKnowledgeService(
+            knowledge_values
+        )
+    )
+    assembler = (
+        FakeMeetingKnowledgeAssembler(
+            meeting_knowledge
+        )
+    )
+    consolidation_formatter = (
+        FakeConsolidationPromptFormatter()
+    )
+    consolidation_service = (
+        FakeConsolidationService(
+            consolidation_results
+            if consolidation_results is not None
+            else [
+                build_report(),
+            ]
+        )
     )
 
     generator = MeetingReportGenerator(
-        prompt_formatter=formatter,
-        meeting_report_service=service,
-        validator=validator,
+        transcript_chunker=chunker,
+        chunk_prompt_formatter=(
+            chunk_formatter
+        ),
+        chunk_knowledge_service=(
+            chunk_service
+        ),
+        meeting_knowledge_assembler=(
+            assembler
+        ),
+        consolidation_prompt_formatter=(
+            consolidation_formatter
+        ),
+        consolidation_service=(
+            consolidation_service
+        ),
     )
 
+    return (
+        generator,
+        chunker,
+        chunk_formatter,
+        chunk_service,
+        assembler,
+        consolidation_formatter,
+        consolidation_service,
+        meeting_knowledge,
+    )
+
+
+def test_generator_processes_every_chunk_once() -> None:
+    (
+        generator,
+        chunker,
+        chunk_formatter,
+        chunk_service,
+        assembler,
+        consolidation_formatter,
+        consolidation_service,
+        meeting_knowledge,
+    ) = build_generator()
+
+    transcript = build_transcript()
+
     result = generator.generate(
+        transcript
+    )
+
+    assert isinstance(
+        result,
+        MeetingReport,
+    )
+
+    assert chunker.calls == 1
+    assert (
+        chunker.received_transcript
+        is transcript
+    )
+
+    assert [
+        chunk.index
+        for chunk in (
+            chunk_formatter.received_chunks
+        )
+    ] == [
+        0,
+        1,
+    ]
+
+    assert len(
+        chunk_service.calls
+    ) == 2
+
+    assert [
+        chunk.index
+        for _, chunk in chunk_service.calls
+    ] == [
+        0,
+        1,
+    ]
+
+    assert assembler.calls == 1
+    assert (
+        assembler.received_source_chunk_count
+        == 2
+    )
+
+    assert [
+        knowledge.chunk_index
+        for knowledge in (
+            assembler.received_chunks
+        )
+    ] == [
+        0,
+        1,
+    ]
+
+    assert (
+        consolidation_formatter
+        .received_knowledge
+        is meeting_knowledge
+    )
+
+    assert consolidation_service.calls == 1
+    assert (
+        consolidation_service
+        .received_knowledge[0]
+        is meeting_knowledge
+    )
+
+
+def test_generator_preserves_early_and_late_chunk_knowledge() -> None:
+    (
+        generator,
+        _,
+        _,
+        _,
+        assembler,
+        _,
+        _,
+        _,
+    ) = build_generator()
+
+    generator.generate(
         build_transcript()
     )
 
-    assert result is report
-    assert formatter.calls == 1
-    assert service.calls == 1
-    assert validator.calls == 1
+    received = (
+        assembler.received_chunks
+    )
 
     assert (
-        service.received_prompts[0]
-        is formatter.prompt
+        "estado inicial"
+        in received[0].key_points[0]
+    )
+
+    assert (
+        "continuará"
+        in received[1].conclusions[0]
     )
 
 
-def test_generator_uses_corrective_prompt_after_domain_error() -> None:
-    report = build_report()
+def test_generator_rejects_non_transcript() -> None:
+    generator = build_generator()[0]
 
-    formatter = FakePromptFormatter()
+    with pytest.raises(
+        TypeError,
+        match=(
+            "transcript debe ser una instancia"
+        ),
+    ):
+        generator.generate(
+            object()
+        )
 
-    service = FakeMeetingReportService(
-        [
-            ValueError(
-                "MeetingReport title no puede estar vacío."
-            ),
-            report,
-        ]
-    )
 
-    validator = FakeValidator(
-        [
-            (
-                True,
-                [],
-            ),
-        ]
-    )
-
+def test_generator_rejects_when_chunker_returns_no_chunks() -> None:
     generator = MeetingReportGenerator(
-        prompt_formatter=formatter,
-        meeting_report_service=service,
-        validator=validator,
-    )
-
-    result = generator.generate(
-        build_transcript()
-    )
-
-    assert result is report
-    assert service.calls == 2
-
-    first_prompt = service.received_prompts[0]
-    second_prompt = service.received_prompts[1]
-
-    assert first_prompt is formatter.prompt
-    assert second_prompt is not first_prompt
-
-    assert (
-        second_prompt.version
-        == first_prompt.version
-    )
-
-    assert (
-        first_prompt.content
-        in second_prompt.content
-    )
-
-    assert (
-        "MeetingReport title no puede estar vacío."
-        in second_prompt.content
-    )
-
-    assert (
-        "Genera nuevamente TODO el documento desde cero."
-        in second_prompt.content
-    )
-
-
-def test_generator_uses_corrective_prompt_after_validator_failure() -> None:
-    first_report = build_report()
-    second_report = build_report()
-
-    service = FakeMeetingReportService(
-        [
-            first_report,
-            second_report,
-        ]
-    )
-
-    validator = FakeValidator(
-        [
-            (
-                False,
-                [
-                    "El título es demasiado corto.",
-                ],
-            ),
-            (
-                True,
-                [],
-            ),
-        ]
-    )
-
-    generator = MeetingReportGenerator(
-        prompt_formatter=FakePromptFormatter(),
-        meeting_report_service=service,
-        validator=validator,
-    )
-
-    result = generator.generate(
-        build_transcript()
-    )
-
-    assert result is second_report
-    assert service.calls == 2
-    assert validator.calls == 2
-
-    corrective_prompt = (
-        service.received_prompts[1]
-    )
-
-    assert (
-        "El título es demasiado corto."
-        in corrective_prompt.content
-    )
-
-
-def test_generator_reports_invalid_after_exhausting_attempts() -> None:
-    service = FakeMeetingReportService(
-        [
-            ValueError(
-                "MeetingReport title no puede estar vacío."
-            ),
-            ValueError(
-                "MeetingReport executive_summary "
-                "no puede estar vacío."
-            ),
-        ]
-    )
-
-    generator = MeetingReportGenerator(
-        prompt_formatter=FakePromptFormatter(),
-        meeting_report_service=service,
-        validator=FakeValidator(
-            []
+        transcript_chunker=(
+            FakeTranscriptChunker(
+                []
+            )
         ),
     )
 
     with pytest.raises(
         ValueError,
-        match="MeetingReport inválido:",
-    ) as error:
+        match="no produjo chunks analizables",
+    ):
         generator.generate(
-            build_transcript()
+            Transcript()
         )
 
-    assert (
-        "executive_summary"
-        in str(
-            error.value
-        )
+
+def test_generator_propagates_chunk_extraction_error_without_retry() -> None:
+    chunks = build_chunks()
+    knowledge_values = (
+        build_chunk_knowledge()
     )
 
-    assert service.calls == 2
-
-
-def test_corrective_prompt_preserves_contract_version() -> None:
-    base_prompt = Prompt(
-        content="Contenido original.",
-        version="meeting_report_v1",
-    )
-
-    corrected = (
-        MeetingReportGenerator
-        ._build_corrective_prompt(
-            base_prompt=base_prompt,
-            errors=[
-                "El título está vacío.",
-            ],
+    chunk_service = (
+        FakeChunkKnowledgeService(
+            results=knowledge_values,
+            error_at_index=1,
+            error=ValueError(
+                "evidencia inválida del chunk"
+            ),
         )
     )
 
-    assert corrected.version == "meeting_report_v1"
-    assert "Contenido original." in corrected.content
-    assert "El título está vacío." in corrected.content
+    consolidation_service = (
+        FakeConsolidationService(
+            [
+                build_report(),
+            ]
+        )
+    )
 
-
-def test_generator_rejects_non_transcript() -> None:
     generator = MeetingReportGenerator(
-        prompt_formatter=FakePromptFormatter(),
-        meeting_report_service=FakeMeetingReportService(
-            []
+        transcript_chunker=(
+            FakeTranscriptChunker(
+                chunks
+            )
         ),
-        validator=FakeValidator(
-            []
+        chunk_prompt_formatter=(
+            FakeChunkPromptFormatter()
+        ),
+        chunk_knowledge_service=(
+            chunk_service
+        ),
+        meeting_knowledge_assembler=(
+            FakeMeetingKnowledgeAssembler(
+                build_meeting_knowledge()
+            )
+        ),
+        consolidation_prompt_formatter=(
+            FakeConsolidationPromptFormatter()
+        ),
+        consolidation_service=(
+            consolidation_service
         ),
     )
 
     with pytest.raises(
-        TypeError,
-        match="transcript debe ser una instancia",
+        ValueError,
+        match="evidencia inválida del chunk",
     ):
         generator.generate(
-            object()
+            build_transcript()
         )
+
+    assert len(
+        chunk_service.calls
+    ) == 2
+    assert consolidation_service.calls == 0
+
+
+def test_generator_rejects_empty_meeting_knowledge_before_consolidation() -> None:
+    chunks = build_chunks()
+
+    empty_values = {
+        0: ChunkKnowledge(
+            chunk_index=0,
+            start=0.0,
+            end=5.0,
+        ),
+        1: ChunkKnowledge(
+            chunk_index=1,
+            start=5.0,
+            end=10.0,
+        ),
+    }
+
+    empty_meeting_knowledge = (
+        MeetingKnowledge(
+            source_chunk_count=2,
+            chunks=[
+                empty_values[0],
+                empty_values[1],
+            ],
+        )
+    )
+
+    consolidation_service = (
+        FakeConsolidationService(
+            [
+                build_report(),
+            ]
+        )
+    )
+
+    generator = MeetingReportGenerator(
+        transcript_chunker=(
+            FakeTranscriptChunker(
+                chunks
+            )
+        ),
+        chunk_prompt_formatter=(
+            FakeChunkPromptFormatter()
+        ),
+        chunk_knowledge_service=(
+            FakeChunkKnowledgeService(
+                empty_values
+            )
+        ),
+        meeting_knowledge_assembler=(
+            FakeMeetingKnowledgeAssembler(
+                empty_meeting_knowledge
+            )
+        ),
+        consolidation_prompt_formatter=(
+            FakeConsolidationPromptFormatter()
+        ),
+        consolidation_service=(
+            consolidation_service
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "no contiene conocimiento suficiente"
+        ),
+    ):
+        generator.generate(
+            build_transcript()
+        )
+
+    assert consolidation_service.calls == 0
