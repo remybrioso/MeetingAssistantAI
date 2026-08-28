@@ -1,0 +1,44 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "items"
+    ],
+    "properties": {
+        "items": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "kind",
+                    "description",
+                    "segment_ids"
+                ],
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "topic",
+                            "decision",
+                            "action",
+                            "risk",
+                            "pending"
+                        ]
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "segment_ids": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
