@@ -1,0 +1,57 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "actions"
+    ],
+    "properties": {
+        "actions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "item_index",
+                    "owner",
+                    "due_date",
+                    "status"
+                ],
+                "properties": {
+                    "item_index": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "owner": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "due_date": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "unknown",
+                            "pending",
+                            "completed",
+                            "cancelled"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
