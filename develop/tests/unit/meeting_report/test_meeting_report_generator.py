@@ -12,6 +12,9 @@ from services.artifact_generator import ArtifactGenerator
 from services.meeting_report_generator import (
     MeetingReportGenerator,
 )
+from services.staged_chunk_knowledge_service import (
+    StagedChunkKnowledgeService,
+)
 
 
 class FakeTranscriptChunker:
@@ -36,28 +39,6 @@ class FakeTranscriptChunker:
         )
 
 
-class FakeChunkPromptFormatter:
-    def __init__(self) -> None:
-        self.calls = 0
-        self.received_chunks = []
-
-    def format(
-        self,
-        chunk,
-    ) -> Prompt:
-        self.calls += 1
-        self.received_chunks.append(
-            chunk
-        )
-
-        return Prompt(
-            content=(
-                f"Prompt para chunk {chunk.index}."
-            ),
-            version="chunk_knowledge_v1",
-        )
-
-
 class FakeChunkKnowledgeService:
     def __init__(
         self,
@@ -67,19 +48,15 @@ class FakeChunkKnowledgeService:
             results
         )
         self.calls = 0
-        self.received = []
+        self.received_chunks = []
 
     def generate(
         self,
-        prompt,
         chunk,
     ):
         self.calls += 1
-        self.received.append(
-            (
-                prompt,
-                chunk,
-            )
+        self.received_chunks.append(
+            chunk
         )
 
         return self.results[
@@ -274,10 +251,6 @@ def build_generator(
         ]
     )
 
-    chunk_formatter = (
-        FakeChunkPromptFormatter()
-    )
-
     chunk_service = (
         FakeChunkKnowledgeService(
             {
@@ -308,9 +281,6 @@ def build_generator(
 
     generator = MeetingReportGenerator(
         transcript_chunker=chunker,
-        chunk_prompt_formatter=(
-            chunk_formatter
-        ),
         chunk_knowledge_service=(
             chunk_service
         ),
@@ -328,7 +298,6 @@ def build_generator(
     return (
         generator,
         chunker,
-        chunk_formatter,
         chunk_service,
         assembler,
         consolidation_formatter,
@@ -350,7 +319,6 @@ def test_generator_chunks_transcript_before_knowledge_extraction() -> None:
     (
         generator,
         chunker,
-        chunk_formatter,
         chunk_service,
         _,
         _,
@@ -370,29 +338,18 @@ def test_generator_chunks_transcript_before_knowledge_extraction() -> None:
         is transcript
     )
 
-    assert chunk_formatter.calls == 1
+    assert chunk_service.calls == 1
     assert (
-        chunk_formatter.received_chunks[0].index
+        chunk_service.received_chunks[
+            0
+        ].index
         == 0
     )
-
-    assert chunk_service.calls == 1
-
-    received_prompt, received_chunk = (
-        chunk_service.received[0]
-    )
-
-    assert (
-        received_prompt.version
-        == "chunk_knowledge_v1"
-    )
-    assert received_chunk.index == 0
 
 
 def test_generator_assembles_complete_meeting_knowledge() -> None:
     (
         generator,
-        _,
         _,
         _,
         assembler,
@@ -422,7 +379,6 @@ def test_generator_assembles_complete_meeting_knowledge() -> None:
 def test_generator_formats_meeting_knowledge_before_consolidation() -> None:
     (
         generator,
-        _,
         _,
         _,
         _,
@@ -481,7 +437,6 @@ def test_generator_rejects_invalid_consolidated_report() -> None:
     (
         generator,
         _,
-        _,
         chunk_service,
         _,
         _,
@@ -519,7 +474,6 @@ def test_generator_rejects_invalid_transcript_before_dependencies() -> None:
     (
         generator,
         chunker,
-        chunk_formatter,
         chunk_service,
         assembler,
         consolidation_formatter,
@@ -538,7 +492,6 @@ def test_generator_rejects_invalid_transcript_before_dependencies() -> None:
         )
 
     assert chunker.calls == 0
-    assert chunk_formatter.calls == 0
     assert chunk_service.calls == 0
     assert assembler.calls == 0
     assert (
@@ -548,12 +501,26 @@ def test_generator_rejects_invalid_transcript_before_dependencies() -> None:
     assert consolidation_service.calls == 0
 
 
-def test_generator_uses_chunk_and_consolidation_contracts_by_default() -> None:
+def test_generator_uses_staged_and_consolidation_contracts_by_default() -> None:
     generator = MeetingReportGenerator()
 
+    assert isinstance(
+        generator.chunk_knowledge_service,
+        StagedChunkKnowledgeService,
+    )
+
     assert (
-        generator.chunk_prompt_formatter.contract
-        == "chunk_knowledge_v1"
+        generator
+        .chunk_knowledge_service
+        .CLASSIFICATION_CONTRACT
+        == "chunk_classification_v1"
+    )
+
+    assert (
+        generator
+        .chunk_knowledge_service
+        .ACTION_METADATA_CONTRACT
+        == "chunk_action_metadata_v1"
     )
 
     assert (

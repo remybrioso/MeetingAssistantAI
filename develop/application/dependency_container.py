@@ -19,12 +19,6 @@ from services.artifact_storage_service import (
     ArtifactStorageService,
 )
 from services.audio_capture_service import AudioCaptureService
-from services.chunk_knowledge_service import (
-    ChunkKnowledgeService,
-)
-from services.chunk_prompt_formatter import (
-    ChunkPromptFormatter,
-)
 from services.configuration_service import ConfigurationService
 from services.imported_meeting_service import (
     ImportedMeetingService,
@@ -60,6 +54,9 @@ from services.setup.default_capability_registry import (
 )
 from services.setup.wizard.setup_wizard_service import (
     SetupWizardService,
+)
+from services.staged_chunk_knowledge_service import (
+    StagedChunkKnowledgeService,
 )
 from services.summary_markdown_exporter import (
     SummaryMarkdownExporter,
@@ -157,12 +154,18 @@ artifact_storage_service = ArtifactStorageService()
 summary_markdown_exporter = SummaryMarkdownExporter()
 
 
-# Meeting Intelligence: extracción por chunks
+# Meeting Intelligence: extracción staged por chunks
 transcript_chunker = TranscriptChunker()
 
-chunk_prompt_formatter = ChunkPromptFormatter()
+staged_chunk_knowledge_service = (
+    StagedChunkKnowledgeService()
+)
 
-chunk_knowledge_service = ChunkKnowledgeService()
+# Alias genérico conservado para consumidores existentes.
+# La implementación productiva es exclusivamente staged.
+chunk_knowledge_service = (
+    staged_chunk_knowledge_service
+)
 
 meeting_knowledge_assembler = (
     MeetingKnowledgeAssembler()
@@ -186,11 +189,8 @@ meeting_report_consolidation_service = (
 
 meeting_report_generator = MeetingReportGenerator(
     transcript_chunker=transcript_chunker,
-    chunk_prompt_formatter=(
-        chunk_prompt_formatter
-    ),
     chunk_knowledge_service=(
-        chunk_knowledge_service
+        staged_chunk_knowledge_service
     ),
     meeting_knowledge_assembler=(
         meeting_knowledge_assembler
@@ -389,13 +389,15 @@ container.register(
 )
 
 container.register(
-    "chunk_prompt_formatter",
-    chunk_prompt_formatter,
+    "staged_chunk_knowledge_service",
+    staged_chunk_knowledge_service,
 )
 
+# Alias de compatibilidad: conserva la abstracción genérica,
+# pero ya no registra ChunkKnowledgeService legacy.
 container.register(
     "chunk_knowledge_service",
-    chunk_knowledge_service,
+    staged_chunk_knowledge_service,
 )
 
 container.register(

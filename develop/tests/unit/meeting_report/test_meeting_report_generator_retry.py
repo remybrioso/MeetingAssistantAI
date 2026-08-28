@@ -33,25 +33,6 @@ class FakeTranscriptChunker:
         )
 
 
-class FakeChunkPromptFormatter:
-    def __init__(self) -> None:
-        self.received_chunks = []
-
-    def format(
-        self,
-        chunk,
-    ) -> Prompt:
-        self.received_chunks.append(
-            chunk
-        )
-        return Prompt(
-            content=(
-                f"Prompt chunk {chunk.index}"
-            ),
-            version="chunk_knowledge_v1",
-        )
-
-
 class FakeChunkKnowledgeService:
     def __init__(
         self,
@@ -70,14 +51,10 @@ class FakeChunkKnowledgeService:
 
     def generate(
         self,
-        prompt,
         chunk,
     ):
         self.calls.append(
-            (
-                prompt,
-                chunk,
-            )
+            chunk
         )
 
         if (
@@ -323,9 +300,6 @@ def build_generator(
     chunker = FakeTranscriptChunker(
         chunks
     )
-    chunk_formatter = (
-        FakeChunkPromptFormatter()
-    )
     chunk_service = (
         FakeChunkKnowledgeService(
             knowledge_values
@@ -351,9 +325,6 @@ def build_generator(
 
     generator = MeetingReportGenerator(
         transcript_chunker=chunker,
-        chunk_prompt_formatter=(
-            chunk_formatter
-        ),
         chunk_knowledge_service=(
             chunk_service
         ),
@@ -371,7 +342,6 @@ def build_generator(
     return (
         generator,
         chunker,
-        chunk_formatter,
         chunk_service,
         assembler,
         consolidation_formatter,
@@ -384,7 +354,6 @@ def test_generator_processes_every_chunk_once() -> None:
     (
         generator,
         chunker,
-        chunk_formatter,
         chunk_service,
         assembler,
         consolidation_formatter,
@@ -409,23 +378,13 @@ def test_generator_processes_every_chunk_once() -> None:
         is transcript
     )
 
-    assert [
-        chunk.index
-        for chunk in (
-            chunk_formatter.received_chunks
-        )
-    ] == [
-        0,
-        1,
-    ]
-
     assert len(
         chunk_service.calls
     ) == 2
 
     assert [
         chunk.index
-        for _, chunk in chunk_service.calls
+        for chunk in chunk_service.calls
     ] == [
         0,
         1,
@@ -464,7 +423,6 @@ def test_generator_processes_every_chunk_once() -> None:
 def test_generator_preserves_early_and_late_chunk_knowledge() -> None:
     (
         generator,
-        _,
         _,
         _,
         assembler,
@@ -554,9 +512,6 @@ def test_generator_propagates_chunk_extraction_error_without_retry() -> None:
                 chunks
             )
         ),
-        chunk_prompt_formatter=(
-            FakeChunkPromptFormatter()
-        ),
         chunk_knowledge_service=(
             chunk_service
         ),
@@ -626,9 +581,6 @@ def test_generator_rejects_empty_meeting_knowledge_before_consolidation() -> Non
             FakeTranscriptChunker(
                 chunks
             )
-        ),
-        chunk_prompt_formatter=(
-            FakeChunkPromptFormatter()
         ),
         chunk_knowledge_service=(
             FakeChunkKnowledgeService(

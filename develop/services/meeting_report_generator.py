@@ -2,15 +2,13 @@
 meeting_report_generator.py
 
 Generador de MeetingReport a partir de un Transcript completo
-mediante extracción por chunks y consolidación global.
+mediante extracción staged por chunks y consolidación global.
 """
 
 from models.artifacts.meeting_report import MeetingReport
 from models.prompt import Prompt
 from models.transcript import Transcript
 from services.artifact_generator import ArtifactGenerator
-from services.chunk_knowledge_service import ChunkKnowledgeService
-from services.chunk_prompt_formatter import ChunkPromptFormatter
 from services.meeting_knowledge_assembler import (
     MeetingKnowledgeAssembler,
 )
@@ -19,6 +17,9 @@ from services.meeting_knowledge_prompt_formatter import (
 )
 from services.meeting_report_consolidation_service import (
     MeetingReportConsolidationService,
+)
+from services.staged_chunk_knowledge_service import (
+    StagedChunkKnowledgeService,
 )
 from services.transcript_chunker import TranscriptChunker
 
@@ -33,13 +34,14 @@ class MeetingReportGenerator(
 
     Transcript
         -> TranscriptChunker
+        -> N x StagedChunkKnowledgeService
         -> N x ChunkKnowledge
         -> MeetingKnowledge
         -> Prompt de consolidación
         -> MeetingReport
 
-    La extracción de cada chunk ocurre exactamente una vez por
-    ejecución. Si la consolidación final falla por contenido
+    La extracción staged de cada chunk ocurre exactamente una vez
+    por ejecución. Si la consolidación final falla por contenido
     inválido, se permite un segundo intento correctivo utilizando
     el mismo MeetingKnowledge ya extraído.
 
@@ -51,7 +53,6 @@ class MeetingReportGenerator(
     def __init__(
         self,
         transcript_chunker=None,
-        chunk_prompt_formatter=None,
         chunk_knowledge_service=None,
         meeting_knowledge_assembler=None,
         consolidation_prompt_formatter=None,
@@ -63,16 +64,10 @@ class MeetingReportGenerator(
             else TranscriptChunker()
         )
 
-        self.chunk_prompt_formatter = (
-            chunk_prompt_formatter
-            if chunk_prompt_formatter is not None
-            else ChunkPromptFormatter()
-        )
-
         self.chunk_knowledge_service = (
             chunk_knowledge_service
             if chunk_knowledge_service is not None
-            else ChunkKnowledgeService()
+            else StagedChunkKnowledgeService()
         )
 
         self.meeting_knowledge_assembler = (
@@ -103,9 +98,10 @@ class MeetingReportGenerator(
         Los errores de infraestructura del proveedor no se
         capturan aquí y continúan propagándose.
 
-        Los ValueError producidos durante extracción por chunk
-        también se propagan inmediatamente. Solo la consolidación
-        final dispone de un segundo intento correctivo.
+        Los ValueError producidos durante extracción staged por
+        chunk también se propagan inmediatamente. Solo la
+        consolidación final dispone de un segundo intento
+        correctivo.
         """
 
         if not isinstance(
@@ -128,15 +124,8 @@ class MeetingReportGenerator(
         chunk_knowledge = []
 
         for chunk in chunks:
-            chunk_prompt = (
-                self.chunk_prompt_formatter.format(
-                    chunk
-                )
-            )
-
             knowledge = (
                 self.chunk_knowledge_service.generate(
-                    prompt=chunk_prompt,
                     chunk=chunk,
                 )
             )

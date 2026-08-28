@@ -37,24 +37,12 @@ class SingleChunker:
         ]
 
 
-class ChunkFormatter:
-    def format(
-        self,
-        chunk,
-    ):
-        return Prompt(
-            content="Prompt del chunk.",
-            version="chunk_knowledge_v1",
-        )
-
-
 class ChunkService:
     def __init__(self) -> None:
         self.calls = 0
 
     def generate(
         self,
-        prompt,
         chunk,
     ):
         self.calls += 1
@@ -198,7 +186,6 @@ def build_generator(
 
     generator = MeetingReportGenerator(
         transcript_chunker=SingleChunker(),
-        chunk_prompt_formatter=ChunkFormatter(),
         chunk_knowledge_service=(
             chunk_service
         ),
