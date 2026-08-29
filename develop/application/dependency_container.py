@@ -67,16 +67,9 @@ from services.staged_chunk_knowledge_service import (
 from services.staged_meeting_report_consolidation_service import (
     StagedMeetingReportConsolidationService,
 )
-from services.summary_markdown_exporter import (
-    SummaryMarkdownExporter,
-)
-from services.summary_service import SummaryService
 from services.task_runner import TaskRunner
 from services.transcript_analyzer import TranscriptAnalyzer
 from services.transcript_chunker import TranscriptChunker
-from services.transcript_prompt_formatter import (
-    TranscriptPromptFormatter,
-)
 from services.transcript_service import TranscriptService
 from services.transcript_storage_service import (
     TranscriptStorageService,
@@ -85,7 +78,6 @@ from services.transcript_validator import TranscriptValidator
 from services.validators.meeting_report_validator import (
     MeetingReportValidator,
 )
-from services.validators.summary_validator import SummaryValidator
 from services.workspace_service import WorkspaceService
 
 
@@ -153,14 +145,10 @@ transcript_service = TranscriptService()
 transcript_storage_service = TranscriptStorageService()
 transcript_analyzer = TranscriptAnalyzer()
 transcript_validator = TranscriptValidator()
-transcript_prompt_formatter = TranscriptPromptFormatter()
 
 
-# Servicios de resumen legacy
-summary_service = SummaryService()
-summary_validator = SummaryValidator()
+# Persistencia genérica de artefactos
 artifact_storage_service = ArtifactStorageService()
-summary_markdown_exporter = SummaryMarkdownExporter()
 
 
 # Meeting Intelligence: extracción staged por chunks
@@ -168,12 +156,6 @@ transcript_chunker = TranscriptChunker()
 
 staged_chunk_knowledge_service = (
     StagedChunkKnowledgeService()
-)
-
-# Alias genérico conservado para consumidores existentes.
-# La implementación productiva es exclusivamente staged.
-chunk_knowledge_service = (
-    staged_chunk_knowledge_service
 )
 
 meeting_knowledge_assembler = (
@@ -192,12 +174,6 @@ staged_meeting_report_consolidation_service = (
             meeting_report_validator
         ),
     )
-)
-
-# Alias genérico conservado para consumidores existentes.
-# La implementación productiva global es exclusivamente staged.
-meeting_report_consolidation_service = (
-    staged_meeting_report_consolidation_service
 )
 
 meeting_report_generator = MeetingReportGenerator(
@@ -402,28 +378,8 @@ container.register(
 )
 
 container.register(
-    "transcript_prompt_formatter",
-    transcript_prompt_formatter,
-)
-
-container.register(
-    "summary_service",
-    summary_service,
-)
-
-container.register(
-    "summary_validator",
-    summary_validator,
-)
-
-container.register(
     "artifact_storage_service",
     artifact_storage_service,
-)
-
-container.register(
-    "summary_markdown_exporter",
-    summary_markdown_exporter,
 )
 
 container.register(
@@ -433,13 +389,6 @@ container.register(
 
 container.register(
     "staged_chunk_knowledge_service",
-    staged_chunk_knowledge_service,
-)
-
-# Alias de compatibilidad: conserva la abstracción genérica,
-# pero ya no registra ChunkKnowledgeService legacy.
-container.register(
-    "chunk_knowledge_service",
     staged_chunk_knowledge_service,
 )
 
@@ -455,13 +404,6 @@ container.register(
 
 container.register(
     "staged_meeting_report_consolidation_service",
-    staged_meeting_report_consolidation_service,
-)
-
-# Alias de compatibilidad: conserva la abstracción genérica,
-# pero no registra MeetingReportConsolidationService legacy.
-container.register(
-    "meeting_report_consolidation_service",
     staged_meeting_report_consolidation_service,
 )
 

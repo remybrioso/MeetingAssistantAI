@@ -4,58 +4,64 @@
 
 v0.8.0-alpha.1
 
+## Estado
+
+✅ Completado
+
 ## Objetivo del Milestone
 
-Automatizar el flujo completo de una reunión desde la interfaz gráfica.
+Automatizar el flujo completo de una reunión desde la interfaz
+gráfica sin convertir a los controladores en orquestadores de
+procesamiento.
 
-El usuario debe poder:
+El usuario puede:
 
 1. Iniciar una reunión.
 2. Grabar micrófono y audio del sistema.
 3. Finalizar la reunión.
-4. Generar automáticamente transcript.json.
-5. Recibir retroalimentación visual en la GUI.
+4. Generar automáticamente `transcript.json`.
+5. Recibir retroalimentación visual del procesamiento.
+6. Importar una reunión para procesarla con el mismo pipeline.
 
----
+## Resultado implementado
 
-## Historias previstas
-
-### MAI-026 - MeetingWorkflowService
-
-Crear un servicio de orquestación para coordinar el flujo de reunión.
-
-### MAI-027 - Integración con AppController
-
-Delegar el cierre de reunión al MeetingWorkflowService.
-
-### MAI-028 - Transcripción automática
-
-Generar Transcript al finalizar una reunión.
-
-### MAI-029 - Persistencia automática
-
-Guardar transcript.json automáticamente.
-
-### MAI-030 - Actualización de GUI
-
-Mostrar eventos del proceso en el ActivityPanel.
-
----
-
-## Riesgos
-
-- La transcripción puede bloquear la interfaz.
-- Faster-Whisper puede tardar varios segundos.
-- El usuario puede intentar iniciar otra reunión mientras se procesa la anterior.
-- Se debe evitar que AppController crezca demasiado.
-
----
-
-## Decisión arquitectónica
-
-AppController no orquestará directamente el pipeline de reunión.
-
-La orquestación se moverá a:
+La arquitectura productiva separa:
 
 ```text
-MeetingWorkflowService
+GUI / Controllers
+        |
+        v
+MeetingFinalizationService / ImportedMeetingService
+        |
+        v
+Transcript Service + Storage
+        |
+        v
+MeetingPipelineService
+```
+
+El procesamiento que puede tardar no debe bloquear el hilo
+principal de la interfaz.
+
+## Capacidades consolidadas
+
+- Captura dual de audio.
+- `RecordingSession` y `MeetingWorkspace`.
+- Transcripción automática.
+- Persistencia de `transcript.json`.
+- Procesamiento asíncrono respecto de la GUI.
+- Flujo de reuniones grabadas.
+- Flujo de reuniones importadas.
+- Setup Wizard para validar capacidades del entorno.
+
+## Riesgos mitigados
+
+- El controlador no concentra la lógica del pipeline.
+- El trabajo pesado no debe ejecutarse en el hilo de la GUI.
+- La persistencia del transcript pertenece a servicios dedicados.
+- La sesión y el workspace mantienen rutas explícitas de artefactos.
+
+## Cierre
+
+M3 dejó preparado el dominio de reunión y el transcript como
+fuente confiable para el milestone M4.

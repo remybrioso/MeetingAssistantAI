@@ -1,106 +1,223 @@
 from pathlib import Path
 
+import numpy as np
 import pytest
+import soundfile as sf
 
 from models.recording_session import RecordingSession
+from models.transcript import Segment, Transcript, Word
 from services.meeting_finalization_service import (
     MeetingFinalizationService,
 )
-from services.workspace_service import WorkspaceService
-from services.artifact_storage_service import (
-    ArtifactStorageService,
-)
-from services.meeting_pipeline_service import (
-    MeetingPipelineService,
-)
-from services.summary_markdown_exporter import (
-    SummaryMarkdownExporter,
-)
-from services.summary_service import SummaryService
-from services.transcript_analyzer import TranscriptAnalyzer
-from services.transcript_prompt_formatter import (
-    TranscriptPromptFormatter,
-)
-from services.transcript_service import TranscriptService
 from services.transcript_storage_service import (
     TranscriptStorageService,
 )
-from services.transcript_validator import TranscriptValidator
-from services.validators.summary_validator import (
-    SummaryValidator,
-)
+from services.workspace_service import WorkspaceService
+
+
+class FakeTranscriptService:
+    """
+    Sustituye únicamente el proveedor pesado de transcripción.
+
+    El resto del flujo de finalización usa servicios reales.
+    """
+
+    def __init__(self) -> None:
+        self.received_sources = None
+
+    def transcribe_sources(
+        self,
+        sources,
+    ) -> Transcript:
+        self.received_sources = list(
+            sources
+        )
+
+        return Transcript(
+            segments=[
+                Segment(
+                    start=0.0,
+                    end=1.0,
+                    speaker="LOCAL",
+                    text=(
+                        "Se validó el flujo de "
+                        "finalización de la reunión."
+                    ),
+                    words=[
+                        Word(
+                            start=0.0,
+                            end=0.4,
+                            text="Se",
+                            confidence=0.99,
+                        ),
+                        Word(
+                            start=0.4,
+                            end=1.0,
+                            text="validó",
+                            confidence=0.98,
+                        ),
+                    ],
+                )
+            ]
+        )
+
+
+class FakeMeetingPipeline:
+
+    def __init__(self) -> None:
+        self.received_session = None
+
+    def process(
+        self,
+        recording_session,
+    ) -> None:
+        self.received_session = (
+            recording_session
+        )
+
+
+def _write_audio(
+    path: Path,
+    *,
+    seconds: float = 1.0,
+    sample_rate: int = 16000,
+) -> None:
+    sample_count = int(
+        seconds
+        * sample_rate
+    )
+
+    audio = np.zeros(
+        sample_count,
+        dtype=np.float32,
+    )
+
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    sf.write(
+        str(path),
+        audio,
+        sample_rate,
+    )
 
 
 @pytest.mark.integration
-def test_meeting_finalization_generates_transcript_for_existing_meeting() -> None:
-    session_dirs = sorted(
-        Path("output").glob("meeting_*"),
-        reverse=True,
+def test_meeting_finalization_is_self_contained_and_uses_current_pipeline(
+    tmp_path: Path,
+) -> None:
+    session = RecordingSession(
+        base_output_dir=str(
+            tmp_path
+        ),
+        session_prefix="meeting_finalize_e2e",
     )
 
-    latest = next(
-    (
-        session_dir
-        for session_dir in session_dirs
-        if all(
-            (
-                session_dir / "Audio" / filename
-            ).exists()
-            for filename in (
-                "Microfono.wav",
-                "Sistema.wav",
-                "Reunion.wav",
-            )
+    workspace_service = (
+        WorkspaceService()
+    )
+
+    workspace = (
+        workspace_service.create(
+            session.session_dir
         )
-    ),
-    None,
-)
+    )
 
-    if latest is None:
-        pytest.skip(
-            "No existe una reunión con los tres archivos de audio."
-        )
+    session.attach_workspace(
+        workspace
+    )
 
-    class ExistingRecordingSession(RecordingSession):
+    _write_audio(
+        workspace.microphone_audio,
+    )
 
-        def __post_init__(self) -> None:
-            self.session_dir = latest
-            self.session_name = latest.name
+    _write_audio(
+        workspace.meeting_audio,
+    )
 
-            workspace = WorkspaceService().create(latest)
-            self.attach_workspace(workspace)
+    transcript_service = (
+        FakeTranscriptService()
+    )
+
+    meeting_pipeline = (
+        FakeMeetingPipeline()
+    )
 
     transcript_storage_service = (
-    TranscriptStorageService()
-)
-
-    meeting_pipeline = MeetingPipelineService(
-        summary_service=SummaryService(),
-        transcript_storage_service=(
-            transcript_storage_service
-        ),
-        transcript_analyzer=TranscriptAnalyzer(),
-        transcript_validator=TranscriptValidator(),
-        transcript_prompt_formatter=(
-            TranscriptPromptFormatter()
-        ),
-        summary_validator=SummaryValidator(),
-        storage_service=ArtifactStorageService(),
-        markdown_exporter=SummaryMarkdownExporter(),
+        TranscriptStorageService()
     )
 
     service = MeetingFinalizationService(
-        transcript_service=TranscriptService(),
+        transcript_service=(
+            transcript_service
+        ),
         transcript_storage_service=(
             transcript_storage_service
         ),
-        workspace_service=WorkspaceService(),
-        meeting_pipeline=meeting_pipeline,
+        workspace_service=(
+            workspace_service
+        ),
+        meeting_pipeline=(
+            meeting_pipeline
+        ),
     )
-    session = ExistingRecordingSession()
 
-    transcript = service.finalize(session)
+    transcript = service.finalize(
+        session
+    )
 
     assert transcript is not None
-    assert session.workspace.transcript_json.exists()
-    assert len(transcript.segments) > 0
+
+    assert (
+        session.workspace
+        is workspace
+    )
+
+    assert (
+        workspace.transcript_json.exists()
+    )
+
+    assert (
+        workspace.processing_metrics_json.exists()
+    )
+
+    stored_transcript = (
+        transcript_storage_service.load(
+            workspace.transcript_json
+        )
+    )
+
+    assert (
+        stored_transcript.as_dict()
+        == transcript.as_dict()
+    )
+
+    assert (
+        transcript_service.received_sources
+        is not None
+    )
+
+    assert len(
+        transcript_service.received_sources
+    ) == 1
+
+    assert (
+        transcript_service
+        .received_sources[0]
+        .speaker
+        == "LOCAL"
+    )
+
+    assert (
+        transcript_service
+        .received_sources[0]
+        .file
+        == workspace.microphone_audio
+    )
+
+    assert (
+        meeting_pipeline.received_session
+        is session
+    )

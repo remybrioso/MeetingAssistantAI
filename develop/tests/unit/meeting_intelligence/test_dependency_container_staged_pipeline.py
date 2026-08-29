@@ -1,9 +1,7 @@
 from application.dependency_container import (
-    chunk_knowledge_service,
     container,
     meeting_artifact_delivery_service,
     meeting_pipeline,
-    meeting_report_consolidation_service,
     meeting_report_docx_exporter,
     meeting_report_generator,
     meeting_report_pdf_exporter,
@@ -40,24 +38,10 @@ def test_container_registers_staged_chunk_knowledge_service() -> None:
         registered
         is staged_chunk_knowledge_service
     )
+
     assert isinstance(
         registered,
         StagedChunkKnowledgeService,
-    )
-
-
-def test_container_keeps_generic_chunk_service_alias() -> None:
-    registered = container.get(
-        "chunk_knowledge_service"
-    )
-
-    assert (
-        registered
-        is staged_chunk_knowledge_service
-    )
-    assert (
-        chunk_knowledge_service
-        is staged_chunk_knowledge_service
     )
 
 
@@ -66,6 +50,15 @@ def test_generator_uses_registered_staged_chunk_service() -> None:
         meeting_report_generator
         .chunk_knowledge_service
         is staged_chunk_knowledge_service
+    )
+
+
+def test_container_does_not_register_legacy_chunk_service_alias() -> None:
+    assert (
+        container.get(
+            "chunk_knowledge_service"
+        )
+        is None
     )
 
 
@@ -87,24 +80,10 @@ def test_container_registers_staged_global_consolidation_service() -> None:
         registered
         is staged_meeting_report_consolidation_service
     )
+
     assert isinstance(
         registered,
         StagedMeetingReportConsolidationService,
-    )
-
-
-def test_container_keeps_generic_global_consolidation_alias() -> None:
-    registered = container.get(
-        "meeting_report_consolidation_service"
-    )
-
-    assert (
-        registered
-        is staged_meeting_report_consolidation_service
-    )
-    assert (
-        meeting_report_consolidation_service
-        is staged_meeting_report_consolidation_service
     )
 
 
@@ -113,6 +92,15 @@ def test_generator_uses_registered_staged_global_service() -> None:
         meeting_report_generator
         .consolidation_service
         is staged_meeting_report_consolidation_service
+    )
+
+
+def test_container_does_not_register_legacy_global_service_alias() -> None:
+    assert (
+        container.get(
+            "meeting_report_consolidation_service"
+        )
+        is None
     )
 
 
@@ -134,13 +122,47 @@ def test_registered_global_service_uses_expected_contracts() -> None:
         service.SEMANTIC_CONSOLIDATION_CONTRACT
         == "meeting_semantic_consolidation_v1"
     )
+
     assert (
         service.NARRATIVE_CONTRACT
         == "meeting_report_narrative_v1"
     )
+
     assert (
         service.FINAL_PIPELINE_VERSION
         == "meeting_report_global_staged_v1"
+    )
+
+
+def test_container_does_not_register_legacy_summary_services() -> None:
+    assert (
+        container.get(
+            "summary_service"
+        )
+        is None
+    )
+
+    assert (
+        container.get(
+            "summary_validator"
+        )
+        is None
+    )
+
+    assert (
+        container.get(
+            "summary_markdown_exporter"
+        )
+        is None
+    )
+
+
+def test_container_does_not_register_legacy_transcript_prompt_formatter() -> None:
+    assert (
+        container.get(
+            "transcript_prompt_formatter"
+        )
+        is None
     )
 
 

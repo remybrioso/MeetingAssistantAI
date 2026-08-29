@@ -1,7 +1,7 @@
 APP_NAME = "Meeting Assistant AI"
 
-VERSION = "0.8.0-alpha.1"
+VERSION = "0.9.0-alpha.1"
 
-MILESTONE = "Meeting Pipeline"
+MILESTONE = "AI Pipeline"
 
-BUILD = "2026-07"
+BUILD = "2026-08"
