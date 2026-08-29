@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from application.runtime_paths import RuntimePaths
 from services.json_schema_loader import (
     JsonSchemaLoader,
 )
@@ -27,6 +28,32 @@ def test_loader_reads_real_chunk_contract() -> None:
         "participants",
         "conclusions",
     }
+
+
+def test_loader_default_directory_uses_runtime_resources() -> None:
+    loader = JsonSchemaLoader()
+
+    assert (
+        loader.schemas_directory
+        == RuntimePaths.resolve().schemas_directory
+    )
+
+
+def test_loader_default_directory_is_independent_of_cwd(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(
+        tmp_path
+    )
+
+    loader = JsonSchemaLoader()
+
+    schema = loader.load(
+        "chunk_knowledge_v1"
+    )
+
+    assert schema["type"] == "object"
 
 
 def test_loader_uses_injected_directory(

@@ -5,6 +5,7 @@ Construye el registro predeterminado de
 capacidades funcionales de MAI.
 """
 
+from application.runtime_paths import RuntimePaths
 from providers.ollama_provider import (
     OllamaProvider,
 )
@@ -17,6 +18,12 @@ from services.setup.capabilities.audio_capability import (
 from services.setup.capabilities.capability_registry import (
     CapabilityRegistry,
 )
+from services.setup.capabilities.runtime_resources_capability import (
+    RuntimeResourcesCapability,
+)
+from services.setup.capabilities.transcription_capability import (
+    TranscriptionCapability,
+)
 from services.setup.capabilities.workspace_capability import (
     WorkspaceCapability,
 )
@@ -25,6 +32,7 @@ from services.setup.capabilities.workspace_capability import (
 def build_default_capability_registry(
     configuration,
     ai_provider=None,
+    transcription_model_resolver=None,
 ) -> CapabilityRegistry:
 
     registry = CapabilityRegistry()
@@ -34,9 +42,40 @@ def build_default_capability_registry(
         or OllamaProvider()
     )
 
+    runtime_paths = getattr(
+        configuration,
+        "runtime_paths",
+        None,
+    )
+
+    if not isinstance(
+        runtime_paths,
+        RuntimePaths,
+    ):
+        runtime_paths = (
+            RuntimePaths.resolve()
+        )
+
+    registry.register(
+        RuntimeResourcesCapability(
+            runtime_paths=runtime_paths
+        )
+    )
+
     registry.register(
         WorkspaceCapability(
             configuration.output_directory
+        )
+    )
+
+    registry.register(
+        TranscriptionCapability(
+            model_name=(
+                configuration.whisper_model
+            ),
+            model_resolver=(
+                transcription_model_resolver
+            ),
         )
     )
 

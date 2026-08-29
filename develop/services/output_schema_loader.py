@@ -10,22 +10,25 @@ import re
 from json import JSONDecodeError
 from pathlib import Path
 
+from application.runtime_paths import RuntimePaths
+
 
 class OutputSchemaLoader:
     """
     Resuelve y carga un JSON Schema a partir del nombre
     versionado de un contrato.
 
-    Los schemas de producción viven en:
+    Los schemas de aplicación viven en:
 
-        prompts/schemas/<contract>.json
+        <resource_root>/prompts/schemas/<contract>.json
 
     El loader no conoce Summary, MeetingReport ni ningún
     otro artefacto concreto.
     """
 
-    DEFAULT_SCHEMAS_DIRECTORY = Path(
-        "prompts/schemas"
+    DEFAULT_SCHEMAS_DIRECTORY = (
+        RuntimePaths.resolve()
+        .schemas_directory
     )
 
     CONTRACT_NAME_PATTERN = re.compile(

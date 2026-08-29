@@ -10,11 +10,17 @@ import re
 from json import JSONDecodeError
 from pathlib import Path
 
+from application.runtime_paths import RuntimePaths
+
 
 class JsonSchemaLoader:
     """Carga un JSON Schema a partir de un contrato versionado."""
 
-    DEFAULT_DIRECTORY = Path("prompts/schemas")
+    DEFAULT_DIRECTORY = (
+        RuntimePaths.resolve()
+        .schemas_directory
+    )
+
     CONTRACT_NAME_PATTERN = re.compile(
         r"^[A-Za-z0-9][A-Za-z0-9_-]*$"
     )
@@ -25,7 +31,10 @@ class JsonSchemaLoader:
     ) -> None:
         if (
             schemas_directory is not None
-            and not isinstance(schemas_directory, Path)
+            and not isinstance(
+                schemas_directory,
+                Path,
+            )
         ):
             raise TypeError(
                 "schemas_directory debe ser una "

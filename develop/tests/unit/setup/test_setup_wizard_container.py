@@ -1,6 +1,10 @@
 from application.dependency_container import container
-from services.setup.capabilities.capability_registry import CapabilityRegistry
-from services.setup.capabilities.capability_runner import CapabilityRunner
+from services.setup.capabilities.capability_registry import (
+    CapabilityRegistry,
+)
+from services.setup.capabilities.capability_runner import (
+    CapabilityRunner,
+)
 from services.setup.wizard.setup_wizard_service import (
     SetupWizardService,
 )
@@ -34,13 +38,31 @@ def test_setup_wizard_dependencies_are_registered() -> None:
         SetupWizardService,
     )
 
-    assert len(registry) == 3
+    registered_capability_ids = {
+        capability.capability_id
+        for capability in registry.get_all()
+    }
 
-    assert registry.get("workspace") is not None
+    assert registered_capability_ids == {
+        "runtime-resources",
+        "workspace",
+        "transcription",
+        "artificial-intelligence",
+        "audio",
+    }
 
-    assert (
-        registry.get("artificial-intelligence")
-        is not None
-    )
+    assert len(registry) == 5
 
-    assert registry.get("audio") is not None
+    for capability_id in (
+        "runtime-resources",
+        "workspace",
+        "transcription",
+        "artificial-intelligence",
+        "audio",
+    ):
+        assert (
+            registry.get(
+                capability_id
+            )
+            is not None
+        )

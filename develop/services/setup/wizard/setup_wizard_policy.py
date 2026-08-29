@@ -13,7 +13,9 @@ class SetupWizardPolicy:
 
     required_capability_ids: set[str] = field(
         default_factory=lambda: {
+            "runtime-resources",
             "workspace",
+            "transcription",
             "artificial-intelligence",
             "audio",
         }

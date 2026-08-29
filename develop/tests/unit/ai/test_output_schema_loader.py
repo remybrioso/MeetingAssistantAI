@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from application.runtime_paths import RuntimePaths
 from services.output_schema_loader import (
     OutputSchemaLoader,
 )
@@ -71,8 +72,23 @@ def test_loader_uses_default_directory() -> None:
 
     assert (
         loader.schemas_directory
-        == Path("prompts/schemas")
+        == RuntimePaths.resolve().schemas_directory
     )
+
+
+def test_loader_default_directory_is_independent_of_cwd(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(
+        tmp_path
+    )
+
+    schema = OutputSchemaLoader().load(
+        "summary_v1"
+    )
+
+    assert schema["type"] == "object"
 
 
 def test_loader_loads_real_summary_schema() -> None:
