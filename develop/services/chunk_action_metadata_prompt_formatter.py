@@ -9,6 +9,7 @@ import json
 import re
 from pathlib import Path
 
+from application.runtime_paths import RuntimePaths
 from models.chunk_classification import (
     ChunkClassification,
     ChunkKnowledgeKind,
@@ -18,20 +19,11 @@ from models.transcript_chunk import TranscriptChunk
 
 
 class ChunkActionMetadataPromptFormatter:
-    """
-    Envía en una sola solicitud todas las acciones del chunk.
-
-    Cada acción incluye únicamente:
-    - item_index del ChunkClassification;
-    - description;
-    - segment_id + text de su evidencia.
-
-    No envía speaker ni timestamps.
-    """
 
     DEFAULT_CONTRACT = "chunk_action_metadata_v1"
-    CONTRACTS_DIRECTORY = Path(
-        "prompts"
+    CONTRACTS_DIRECTORY = (
+        RuntimePaths.resolve()
+        .prompts_directory
     )
     ACTIONS_PLACEHOLDER = "{{ACTIONS}}"
     CONTRACT_NAME_PATTERN = re.compile(
@@ -134,8 +126,7 @@ class ChunkActionMetadataPromptFormatter:
             for segment_id in item.segment_ids:
                 if (
                     segment_id < 0
-                    or segment_id
-                    >= len(
+                    or segment_id >= len(
                         chunk.segments
                     )
                 ):

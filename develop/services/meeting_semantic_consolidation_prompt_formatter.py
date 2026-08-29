@@ -9,57 +9,32 @@ import json
 import re
 from pathlib import Path
 
+from application.runtime_paths import RuntimePaths
 from models.meeting_knowledge import MeetingKnowledge
 from models.prompt import Prompt
 
 
 class MeetingSemanticConsolidationPromptFormatter:
-    """
-    Serializa únicamente la información necesaria para G1.
-
-    La evidencia completa nunca se envía al proveedor global.
-    Para acciones se incluyen owner, due_date y status solo como
-    contexto de compatibilidad semántica; el proveedor no debe
-    devolverlos.
-    """
 
     DEFAULT_CONTRACT = (
         "meeting_semantic_consolidation_v1"
     )
-
-    CONTRACTS_DIRECTORY = Path(
-        "prompts"
+    CONTRACTS_DIRECTORY = (
+        RuntimePaths.resolve()
+        .prompts_directory
     )
-
     CATALOG_PLACEHOLDER = (
         "{{SOURCE_CATALOG}}"
     )
-
     CONTRACT_NAME_PATTERN = re.compile(
         r"^[A-Za-z0-9][A-Za-z0-9_-]*$"
     )
-
     SECTION_KIND_PAIRS = (
-        (
-            "topics",
-            "topic",
-        ),
-        (
-            "decisions",
-            "decision",
-        ),
-        (
-            "action_items",
-            "action",
-        ),
-        (
-            "risks",
-            "risk",
-        ),
-        (
-            "pending_items",
-            "pending",
-        ),
+        ("topics", "topic"),
+        ("decisions", "decision"),
+        ("action_items", "action"),
+        ("risks", "risk"),
+        ("pending_items", "pending"),
     )
 
     def __init__(
@@ -67,17 +42,12 @@ class MeetingSemanticConsolidationPromptFormatter:
         contract: str = DEFAULT_CONTRACT,
         template_file: Path | None = None,
     ) -> None:
-        self.contract = (
-            self._validate_contract(
-                contract
-            )
+        self.contract = self._validate_contract(
+            contract
         )
-
-        self.template_file = (
-            self._resolve_template_file(
-                contract=self.contract,
-                template_file=template_file,
-            )
+        self.template_file = self._resolve_template_file(
+            contract=self.contract,
+            template_file=template_file,
         )
 
     def format(
@@ -96,7 +66,6 @@ class MeetingSemanticConsolidationPromptFormatter:
         template = self.template_file.read_text(
             encoding="utf-8"
         )
-
         self._validate_template(
             template
         )
@@ -139,10 +108,9 @@ class MeetingSemanticConsolidationPromptFormatter:
         catalog: list[dict] = []
 
         for chunk in meeting_knowledge.chunks:
-            for (
-                section_name,
-                kind,
-            ) in cls.SECTION_KIND_PAIRS:
+            for section_name, kind in (
+                cls.SECTION_KIND_PAIRS
+            ):
                 items = getattr(
                     chunk,
                     section_name,
@@ -157,11 +125,9 @@ class MeetingSemanticConsolidationPromptFormatter:
                             chunk.chunk_index
                         ),
                         "item_index": item_index,
-                        "text": (
-                            cls._item_text(
-                                kind=kind,
-                                item=item,
-                            )
+                        "text": cls._item_text(
+                            kind=kind,
+                            item=item,
                         ),
                     }
 
@@ -184,10 +150,7 @@ class MeetingSemanticConsolidationPromptFormatter:
         item,
     ) -> str:
         if kind == "topic":
-            if (
-                item.title
-                == item.summary
-            ):
+            if item.title == item.summary:
                 return item.summary
 
             return (
@@ -228,9 +191,7 @@ class MeetingSemanticConsolidationPromptFormatter:
                 "contract debe ser una cadena."
             )
 
-        normalized_contract = (
-            contract.strip()
-        )
+        normalized_contract = contract.strip()
 
         if not normalized_contract:
             raise ValueError(

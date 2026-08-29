@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from application.runtime_paths import RuntimePaths
 from models.chunk_classification import (
     ChunkKnowledgeKind,
 )
@@ -361,9 +362,15 @@ def test_formatter_resolves_default_contract_template() -> None:
         MeetingReportNarrativePromptFormatter()
     )
 
-    assert formatter.template_file == Path(
-        "prompts/"
-        "meeting_report_narrative_v1.md"
+    expected_template = (
+        RuntimePaths.resolve()
+        .prompts_directory
+        / "meeting_report_narrative_v1.md"
+    )
+
+    assert (
+        formatter.template_file
+        == expected_template
     )
 
     result = formatter.format(

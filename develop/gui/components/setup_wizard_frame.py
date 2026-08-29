@@ -13,11 +13,25 @@ from gui.components.setup_capability_card import (
 
 
 CAPABILITY_PRESENTATION = {
+    "runtime-resources": {
+        "name": "Recursos internos",
+        "description": (
+            "Comprueba que MAI incluya los recursos internos "
+            "necesarios para procesar reuniones."
+        ),
+    },
     "workspace": {
         "name": "Almacenamiento de reuniones",
         "description": (
             "Comprueba que MAI pueda crear y guardar "
             "las reuniones correctamente."
+        ),
+    },
+    "transcription": {
+        "name": "Transcripción",
+        "description": (
+            "Comprueba que el modelo local necesario para "
+            "transcribir reuniones esté disponible."
         ),
     },
     "artificial-intelligence": {

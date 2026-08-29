@@ -1,8 +1,8 @@
 """
 runtime_resources_task.py
 
-Comprueba que los recursos internos indispensables para el
-pipeline productivo de MAI estén disponibles y sean válidos.
+Comprueba los recursos internos indispensables para el pipeline
+productivo de Meeting Assistant AI.
 """
 
 from application.runtime_paths import RuntimePaths
@@ -27,6 +27,25 @@ class RuntimeResourcesTask(SetupTask):
         "meeting_report_narrative_v1",
     )
 
+    REQUIRED_PROMPT_CONTRACTS = (
+        (
+            "chunk_classification_v1",
+            "{{SEGMENTS}}",
+        ),
+        (
+            "chunk_action_metadata_v1",
+            "{{ACTIONS}}",
+        ),
+        (
+            "meeting_semantic_consolidation_v1",
+            "{{SOURCE_CATALOG}}",
+        ),
+        (
+            "meeting_report_narrative_v1",
+            "{{CONSOLIDATED_ITEMS}}",
+        ),
+    )
+
     def __init__(
         self,
         runtime_paths: RuntimePaths,
@@ -37,8 +56,8 @@ class RuntimeResourcesTask(SetupTask):
             RuntimePaths,
         ):
             raise TypeError(
-                "runtime_paths debe ser una "
-                "instancia de RuntimePaths."
+                "runtime_paths debe ser una instancia "
+                "de RuntimePaths."
             )
 
         self.runtime_paths = runtime_paths
@@ -57,7 +76,8 @@ class RuntimeResourcesTask(SetupTask):
         return True
 
     def run(self) -> TaskResult:
-        validated_contracts = []
+        validated_schema_contracts = []
+        validated_prompt_contracts = []
 
         try:
             for contract in (
@@ -66,8 +86,33 @@ class RuntimeResourcesTask(SetupTask):
                 self.schema_loader.load(
                     contract
                 )
+                validated_schema_contracts.append(
+                    contract
+                )
 
-                validated_contracts.append(
+            for contract, placeholder in (
+                self.REQUIRED_PROMPT_CONTRACTS
+            ):
+                template_file = (
+                    self.runtime_paths
+                    .prompts_directory
+                    / f"{contract}.md"
+                )
+
+                template = template_file.read_text(
+                    encoding="utf-8"
+                )
+
+                if template.count(
+                    placeholder
+                ) != 1:
+                    raise ValueError(
+                        "La plantilla productiva "
+                        f"{template_file.name} debe contener "
+                        f"exactamente una vez {placeholder}."
+                    )
+
+                validated_prompt_contracts.append(
                     contract
                 )
 
@@ -83,15 +128,25 @@ class RuntimeResourcesTask(SetupTask):
                     "resource_root": str(
                         self.runtime_paths.resource_root
                     ),
+                    "prompts_directory": str(
+                        self.runtime_paths
+                        .prompts_directory
+                    ),
                     "schemas_directory": str(
                         self.runtime_paths
                         .schemas_directory
                     ),
-                    "validated_contracts": (
-                        validated_contracts
+                    "validated_schema_contracts": (
+                        validated_schema_contracts
                     ),
-                    "required_contract_count": len(
+                    "validated_prompt_contracts": (
+                        validated_prompt_contracts
+                    ),
+                    "required_schema_count": len(
                         self.REQUIRED_SCHEMA_CONTRACTS
+                    ),
+                    "required_prompt_count": len(
+                        self.REQUIRED_PROMPT_CONTRACTS
                     ),
                 },
             )
@@ -109,16 +164,29 @@ class RuntimeResourcesTask(SetupTask):
                     "resource_root": str(
                         self.runtime_paths.resource_root
                     ),
+                    "prompts_directory": str(
+                        self.runtime_paths
+                        .prompts_directory
+                    ),
                     "schemas_directory": str(
                         self.runtime_paths
                         .schemas_directory
                     ),
-                    "validated_contracts": (
-                        validated_contracts
+                    "validated_schema_contracts": (
+                        validated_schema_contracts
                     ),
-                    "required_contracts": list(
+                    "validated_prompt_contracts": (
+                        validated_prompt_contracts
+                    ),
+                    "required_schema_contracts": list(
                         self.REQUIRED_SCHEMA_CONTRACTS
                     ),
+                    "required_prompt_contracts": [
+                        contract
+                        for contract, _ in (
+                            self.REQUIRED_PROMPT_CONTRACTS
+                        )
+                    ],
                 },
                 error=str(ex),
             )

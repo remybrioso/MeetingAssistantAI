@@ -2,9 +2,18 @@ from pathlib import Path
 
 import pytest
 
-from application.runtime_paths import (
-    RuntimePaths,
-)
+from application.runtime_paths import RuntimePaths
+
+
+def build_paths(
+    tmp_path: Path,
+) -> RuntimePaths:
+    return RuntimePaths.resolve(
+        resource_root=tmp_path / "bundle",
+        user_data_root=tmp_path / "data",
+        meetings_root=tmp_path / "meetings",
+        logs_root=tmp_path / "logs",
+    )
 
 
 def test_resolve_does_not_depend_on_current_working_directory(
@@ -17,7 +26,6 @@ def test_resolve_does_not_depend_on_current_working_directory(
         tmp_path
         / "unrelated-working-directory"
     )
-
     other_directory.mkdir(
         parents=True,
     )
@@ -49,25 +57,30 @@ def test_default_resource_root_points_to_project_root() -> None:
     )
 
 
-def test_schema_directory_is_relative_to_resource_root(
+def test_prompts_directory_is_relative_to_resource_root(
     tmp_path: Path,
 ) -> None:
-    resource_root = (
+    resolved = build_paths(
         tmp_path
-        / "bundle"
     )
 
-    resolved = RuntimePaths.resolve(
-        resource_root=resource_root,
-        user_data_root=tmp_path / "data",
-        meetings_root=tmp_path / "meetings",
-        logs_root=tmp_path / "logs",
+    assert (
+        resolved.prompts_directory
+        == (tmp_path / "bundle").resolve()
+        / "prompts"
+    )
+
+
+def test_schema_directory_is_relative_to_prompts_directory(
+    tmp_path: Path,
+) -> None:
+    resolved = build_paths(
+        tmp_path
     )
 
     assert (
         resolved.schemas_directory
-        == resource_root.resolve()
-        / "prompts"
+        == resolved.prompts_directory
         / "schemas"
     )
 
@@ -75,23 +88,18 @@ def test_schema_directory_is_relative_to_resource_root(
 def test_resolve_accepts_explicit_user_path_overrides(
     tmp_path: Path,
 ) -> None:
-    resolved = RuntimePaths.resolve(
-        resource_root=tmp_path / "bundle",
-        user_data_root=tmp_path / "data",
-        meetings_root=tmp_path / "meetings",
-        logs_root=tmp_path / "logs",
+    resolved = build_paths(
+        tmp_path
     )
 
     assert (
         resolved.user_data_root
         == (tmp_path / "data").resolve()
     )
-
     assert (
         resolved.meetings_root
         == (tmp_path / "meetings").resolve()
     )
-
     assert (
         resolved.logs_root
         == (tmp_path / "logs").resolve()
@@ -101,11 +109,8 @@ def test_resolve_accepts_explicit_user_path_overrides(
 def test_models_directory_belongs_to_private_user_data(
     tmp_path: Path,
 ) -> None:
-    resolved = RuntimePaths.resolve(
-        resource_root=tmp_path / "bundle",
-        user_data_root=tmp_path / "data",
-        meetings_root=tmp_path / "meetings",
-        logs_root=tmp_path / "logs",
+    resolved = build_paths(
+        tmp_path
     )
 
     assert (
@@ -118,30 +123,16 @@ def test_models_directory_belongs_to_private_user_data(
 def test_ensure_user_directories_creates_writable_locations(
     tmp_path: Path,
 ) -> None:
-    resolved = RuntimePaths.resolve(
-        resource_root=tmp_path / "bundle",
-        user_data_root=tmp_path / "data",
-        meetings_root=tmp_path / "meetings",
-        logs_root=tmp_path / "logs",
+    resolved = build_paths(
+        tmp_path
     )
 
     resolved.ensure_user_directories()
 
-    assert (
-        resolved.user_data_root.is_dir()
-    )
-
-    assert (
-        resolved.meetings_root.is_dir()
-    )
-
-    assert (
-        resolved.logs_root.is_dir()
-    )
-
-    assert (
-        resolved.models_directory.is_dir()
-    )
+    assert resolved.user_data_root.is_dir()
+    assert resolved.meetings_root.is_dir()
+    assert resolved.logs_root.is_dir()
+    assert resolved.models_directory.is_dir()
 
 
 def test_ensure_user_directories_does_not_create_resource_root(
@@ -161,9 +152,7 @@ def test_ensure_user_directories_does_not_create_resource_root(
 
     resolved.ensure_user_directories()
 
-    assert not (
-        resource_root.exists()
-    )
+    assert not resource_root.exists()
 
 
 @pytest.mark.parametrize(
@@ -197,9 +186,7 @@ def test_resolve_rejects_non_path_overrides(
 
 
 def test_frozen_flag_is_boolean() -> None:
-    resolved = RuntimePaths.resolve()
-
     assert isinstance(
-        resolved.frozen,
+        RuntimePaths.resolve().frozen,
         bool,
     )

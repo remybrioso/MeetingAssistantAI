@@ -2,10 +2,6 @@
 
 """
 PyInstaller packaging contract for Meeting Assistant AI.
-
-This is intentionally an onedir diagnostic build contract.
-TASK-061 will execute and validate the generated bundle before
-the final GUI/no-console release configuration is frozen.
 """
 
 from pathlib import Path
@@ -22,6 +18,13 @@ PROJECT_ROOT = (
     .parent
 )
 
+PRODUCTIVE_PROMPT_CONTRACTS = (
+    "chunk_classification_v1",
+    "chunk_action_metadata_v1",
+    "meeting_semantic_consolidation_v1",
+    "meeting_report_narrative_v1",
+)
+
 
 datas = [
     (
@@ -34,7 +37,20 @@ datas = [
     ),
 ]
 
-# CustomTkinter requires non-Python resources such as JSON/OTF files.
+for prompt_contract in (
+    PRODUCTIVE_PROMPT_CONTRACTS
+):
+    datas.append(
+        (
+            str(
+                PROJECT_ROOT
+                / "prompts"
+                / f"{prompt_contract}.md"
+            ),
+            "prompts",
+        )
+    )
+
 datas += collect_data_files(
     "customtkinter"
 )
@@ -56,18 +72,14 @@ def collect_runtime_package(
     datas.extend(
         package_datas
     )
-
     binaries.extend(
         package_binaries
     )
-
     hiddenimports.extend(
         package_hiddenimports
     )
 
 
-# Packages with runtime data, native binaries, or imports that
-# deserve explicit collection for the first Windows bundle.
 for runtime_package in (
     "faster_whisper",
     "ctranslate2",

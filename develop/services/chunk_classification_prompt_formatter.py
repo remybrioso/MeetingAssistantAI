@@ -9,21 +9,17 @@ import json
 import re
 from pathlib import Path
 
+from application.runtime_paths import RuntimePaths
 from models.prompt import Prompt
 from models.transcript_chunk import TranscriptChunk
 
 
 class ChunkClassificationPromptFormatter:
-    """
-    Serializa únicamente segment_id + text.
-
-    El segment_id es local al chunk y es generado por el sistema.
-    No se modifica Segment ni TranscriptChunk.
-    """
 
     DEFAULT_CONTRACT = "chunk_classification_v1"
-    CONTRACTS_DIRECTORY = Path(
-        "prompts"
+    CONTRACTS_DIRECTORY = (
+        RuntimePaths.resolve()
+        .prompts_directory
     )
     CHUNK_PLACEHOLDER = "{{SEGMENTS}}"
     CONTRACT_NAME_PATTERN = re.compile(

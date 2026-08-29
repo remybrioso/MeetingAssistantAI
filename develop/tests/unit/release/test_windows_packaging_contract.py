@@ -24,6 +24,13 @@ BUILD_REQUIREMENTS = (
     / "requirements-build.txt"
 )
 
+PRODUCTIVE_PROMPTS = (
+    "chunk_classification_v1",
+    "chunk_action_metadata_v1",
+    "meeting_semantic_consolidation_v1",
+    "meeting_report_narrative_v1",
+)
+
 
 def test_packaging_contract_files_exist() -> None:
     assert SPEC_FILE.is_file()
@@ -32,17 +39,16 @@ def test_packaging_contract_files_exist() -> None:
 
 
 def test_build_tool_version_is_pinned() -> None:
-    requirements = (
+    assert (
         BUILD_REQUIREMENTS
         .read_text(
             encoding="utf-8"
         )
         .splitlines()
+        == [
+            "pyinstaller==6.22.2"
+        ]
     )
-
-    assert requirements == [
-        "pyinstaller==6.22.2"
-    ]
 
 
 def test_spec_uses_application_entrypoint() -> None:
@@ -60,6 +66,23 @@ def test_spec_bundles_productive_schema_resources() -> None:
     )
 
     assert '"prompts/schemas"' in spec
+
+
+def test_spec_bundles_productive_prompt_templates() -> None:
+    spec = SPEC_FILE.read_text(
+        encoding="utf-8"
+    )
+
+    for contract in PRODUCTIVE_PROMPTS:
+        assert (
+            f'"{contract}"'
+            in spec
+        )
+
+    assert (
+        'f"{prompt_contract}.md"'
+        in spec
+    )
 
 
 def test_spec_collects_customtkinter_data() -> None:
@@ -106,21 +129,20 @@ def test_spec_defines_onedir_bundle() -> None:
 
 
 def test_first_bundle_keeps_console_for_diagnostics() -> None:
-    spec = SPEC_FILE.read_text(
-        encoding="utf-8"
+    assert (
+        "console=True"
+        in SPEC_FILE.read_text(
+            encoding="utf-8"
+        )
     )
-
-    assert "console=True" in spec
 
 
 def test_build_script_uses_virtual_environment() -> None:
-    script = BUILD_SCRIPT.read_text(
-        encoding="utf-8"
-    )
-
     assert (
         ".venv\\Scripts\\python.exe"
-        in script
+        in BUILD_SCRIPT.read_text(
+            encoding="utf-8"
+        )
     )
 
 
@@ -129,15 +151,8 @@ def test_build_script_uses_pinned_build_requirements() -> None:
         encoding="utf-8"
     )
 
-    assert (
-        "requirements-build.txt"
-        in script
-    )
-
-    assert (
-        "-r $BuildRequirements"
-        in script
-    )
+    assert "requirements-build.txt" in script
+    assert "-r $BuildRequirements" in script
 
 
 def test_build_script_uses_committed_spec_file() -> None:
@@ -149,20 +164,14 @@ def test_build_script_uses_committed_spec_file() -> None:
         "packaging\\MeetingAssistantAI.spec"
         in script
     )
-
-    assert (
-        "-m PyInstaller"
-        in script
-    )
+    assert "-m PyInstaller" in script
 
 
 def test_build_script_validates_expected_executable() -> None:
-    script = BUILD_SCRIPT.read_text(
-        encoding="utf-8"
-    )
-
     assert (
         "dist\\MeetingAssistantAI"
         "\\MeetingAssistantAI.exe"
-        in script
+        in BUILD_SCRIPT.read_text(
+            encoding="utf-8"
+        )
     )

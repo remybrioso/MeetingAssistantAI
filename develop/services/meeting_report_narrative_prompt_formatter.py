@@ -9,6 +9,7 @@ import json
 import re
 from pathlib import Path
 
+from application.runtime_paths import RuntimePaths
 from models.meeting_semantic_consolidation import (
     MeetingSemanticConsolidation,
 )
@@ -16,25 +17,17 @@ from models.prompt import Prompt
 
 
 class MeetingReportNarrativePromptFormatter:
-    """
-    Serializa solo item_id + kind + description.
-
-    G2 no recibe evidencia ni metadata operacional. Toda esa
-    información permanece bajo control del sistema.
-    """
 
     DEFAULT_CONTRACT = (
         "meeting_report_narrative_v1"
     )
-
-    CONTRACTS_DIRECTORY = Path(
-        "prompts"
+    CONTRACTS_DIRECTORY = (
+        RuntimePaths.resolve()
+        .prompts_directory
     )
-
     ITEMS_PLACEHOLDER = (
         "{{CONSOLIDATED_ITEMS}}"
     )
-
     CONTRACT_NAME_PATTERN = re.compile(
         r"^[A-Za-z0-9][A-Za-z0-9_-]*$"
     )
@@ -44,17 +37,12 @@ class MeetingReportNarrativePromptFormatter:
         contract: str = DEFAULT_CONTRACT,
         template_file: Path | None = None,
     ) -> None:
-        self.contract = (
-            self._validate_contract(
-                contract
-            )
+        self.contract = self._validate_contract(
+            contract
         )
-
-        self.template_file = (
-            self._resolve_template_file(
-                contract=self.contract,
-                template_file=template_file,
-            )
+        self.template_file = self._resolve_template_file(
+            contract=self.contract,
+            template_file=template_file,
         )
 
     def format(
@@ -79,7 +67,6 @@ class MeetingReportNarrativePromptFormatter:
         template = self.template_file.read_text(
             encoding="utf-8"
         )
-
         self._validate_template(
             template
         )
@@ -122,9 +109,7 @@ class MeetingReportNarrativePromptFormatter:
             {
                 "item_id": item_id,
                 "kind": item.kind.value,
-                "description": (
-                    item.description
-                ),
+                "description": item.description,
             }
             for item_id, item in enumerate(
                 semantic_consolidation.items
@@ -144,9 +129,7 @@ class MeetingReportNarrativePromptFormatter:
                 "contract debe ser una cadena."
             )
 
-        normalized_contract = (
-            contract.strip()
-        )
+        normalized_contract = contract.strip()
 
         if not normalized_contract:
             raise ValueError(
