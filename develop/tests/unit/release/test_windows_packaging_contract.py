@@ -128,13 +128,13 @@ def test_spec_defines_onedir_bundle() -> None:
     )
 
 
-def test_first_bundle_keeps_console_for_diagnostics() -> None:
-    assert (
-        "console=True"
-        in SPEC_FILE.read_text(
-            encoding="utf-8"
-        )
+def test_production_bundle_uses_gui_subsystem() -> None:
+    spec = SPEC_FILE.read_text(
+        encoding="utf-8"
     )
+
+    assert "console=False" in spec
+    assert "console=True" not in spec
 
 
 def test_build_script_uses_virtual_environment() -> None:
