@@ -167,6 +167,60 @@ class MeetingWorkspace:
         )
 
     @property
+    def action_items_json(
+        self,
+    ) -> Path:
+        """
+        Artefacto estructurado derivado que contiene las
+        acciones y compromisos del MeetingReport.
+        """
+
+        return (
+            self.internal_dir
+            / "action_items.json"
+        )
+
+    @property
+    def decisions_json(
+        self,
+    ) -> Path:
+        """
+        Artefacto estructurado derivado que contiene las
+        decisiones del MeetingReport.
+        """
+
+        return (
+            self.internal_dir
+            / "decisions.json"
+        )
+
+    @property
+    def meeting_minutes_docx(
+        self,
+    ) -> Path:
+        """
+        Minuta formal de reunión generada desde MeetingReport.
+        """
+
+        return (
+            self.documents_dir
+            / "minutes.docx"
+        )
+
+    @property
+    def meeting_pdf(
+        self,
+    ) -> Path:
+        """
+        Documento PDF formal generado desde MeetingReport.
+        """
+
+        return (
+            self.documents_dir
+            / "meeting.pdf"
+        )
+
+    @property
     def processing_metrics_json(
         self,
     ) -> Path:

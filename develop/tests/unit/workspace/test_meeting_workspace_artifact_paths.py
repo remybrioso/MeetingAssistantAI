@@ -21,6 +21,74 @@ def test_workspace_exposes_meeting_report_json(
     )
 
 
+def test_workspace_exposes_action_items_json(
+    tmp_path: Path,
+) -> None:
+    workspace = WorkspaceService().create(
+        tmp_path
+    )
+
+    assert (
+        workspace.action_items_json
+        == (
+            tmp_path
+            / ".mai"
+            / "action_items.json"
+        )
+    )
+
+
+def test_workspace_exposes_decisions_json(
+    tmp_path: Path,
+) -> None:
+    workspace = WorkspaceService().create(
+        tmp_path
+    )
+
+    assert (
+        workspace.decisions_json
+        == (
+            tmp_path
+            / ".mai"
+            / "decisions.json"
+        )
+    )
+
+
+def test_workspace_exposes_meeting_minutes_docx(
+    tmp_path: Path,
+) -> None:
+    workspace = WorkspaceService().create(
+        tmp_path
+    )
+
+    assert (
+        workspace.meeting_minutes_docx
+        == (
+            tmp_path
+            / "Documentos"
+            / "minutes.docx"
+        )
+    )
+
+
+def test_workspace_exposes_meeting_pdf(
+    tmp_path: Path,
+) -> None:
+    workspace = WorkspaceService().create(
+        tmp_path
+    )
+
+    assert (
+        workspace.meeting_pdf
+        == (
+            tmp_path
+            / "Documentos"
+            / "meeting.pdf"
+        )
+    )
+
+
 def test_workspace_exposes_meeting_report_markdown(
     tmp_path: Path,
 ) -> None:
@@ -71,24 +139,20 @@ def test_workspace_does_not_create_artifacts_during_initialization(
         tmp_path
     )
 
-    assert (
-        workspace.meeting_report_json.exists()
-        is False
-    )
+    artifact_paths = [
+        workspace.meeting_report_json,
+        workspace.action_items_json,
+        workspace.decisions_json,
+        workspace.meeting_report_markdown,
+        workspace.meeting_minutes_docx,
+        workspace.meeting_pdf,
+        workspace.summary_json,
+        workspace.summary_markdown,
+    ]
 
-    assert (
-        workspace.meeting_report_markdown.exists()
-        is False
-    )
-
-    assert (
-        workspace.summary_json.exists()
-        is False
-    )
-
-    assert (
-        workspace.summary_markdown.exists()
-        is False
+    assert all(
+        path.exists() is False
+        for path in artifact_paths
     )
 
 

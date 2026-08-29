@@ -92,38 +92,21 @@ class FakeArtifactGenerator:
         return self.artifact
 
 
-class FakeArtifactStorageService:
+class FakeArtifactDeliveryService:
 
     def __init__(
         self,
     ) -> None:
-        self.saved_artifact = None
-        self.saved_filename = None
+        self.received_report = None
+        self.received_workspace = None
 
-    def save(
+    def deliver(
         self,
-        artifact,
-        filename,
+        report,
+        workspace,
     ) -> None:
-        self.saved_artifact = artifact
-        self.saved_filename = filename
-
-
-class FakeMarkdownExporter:
-
-    def __init__(
-        self,
-    ) -> None:
-        self.exported_artifact = None
-        self.exported_filename = None
-
-    def export(
-        self,
-        artifact,
-        filename,
-    ) -> None:
-        self.exported_artifact = artifact
-        self.exported_filename = filename
+        self.received_report = report
+        self.received_workspace = workspace
 
 
 def build_transcript() -> Transcript:
@@ -165,25 +148,13 @@ def build_pipeline(
 
     artifact_generator = FakeArtifactGenerator()
 
-    storage_service = FakeArtifactStorageService()
-
-    markdown_exporter = FakeMarkdownExporter()
+    delivery_service = FakeArtifactDeliveryService()
 
     workspace = SimpleNamespace(
         transcript_json=(
             tmp_path
             / ".mai"
             / "transcript.json"
-        ),
-        meeting_report_json=(
-            tmp_path
-            / ".mai"
-            / "meeting_report.json"
-        ),
-        meeting_report_markdown=(
-            tmp_path
-            / "Documentos"
-            / "Meeting Report.md"
         ),
     )
 
@@ -193,8 +164,9 @@ def build_pipeline(
 
     pipeline = MeetingPipelineService(
         artifact_generator=artifact_generator,
-        storage_service=storage_service,
-        markdown_exporter=markdown_exporter,
+        artifact_delivery_service=(
+            delivery_service
+        ),
         transcript_storage_service=(
             transcript_storage
         ),
@@ -214,8 +186,7 @@ def build_pipeline(
         transcript_analyzer,
         transcript_validator,
         artifact_generator,
-        storage_service,
-        markdown_exporter,
+        delivery_service,
         workspace,
     )
 
@@ -223,8 +194,7 @@ def build_pipeline(
 def test_meeting_pipeline_service_can_be_created() -> None:
     pipeline = MeetingPipelineService(
         artifact_generator=object(),
-        storage_service=object(),
-        markdown_exporter=object(),
+        artifact_delivery_service=object(),
     )
 
     assert pipeline is not None
@@ -240,7 +210,6 @@ def test_pipeline_loads_and_validates_transcript(
         transcript_storage,
         transcript_analyzer,
         transcript_validator,
-        _,
         _,
         _,
         workspace,
@@ -281,6 +250,64 @@ def test_pipeline_generates_artifact_from_transcript(
         artifact_generator,
         _,
         _,
+    ) = build_pipeline(
+        tmp_path
+    )
+
+    pipeline.process(
+        recording_session
+    )
+
+    assert (
+        artifact_generator.received_transcript
+        is transcript
+    )
+
+
+def test_pipeline_delegates_artifact_delivery(
+    tmp_path: Path,
+) -> None:
+    (
+        pipeline,
+        recording_session,
+        _,
+        _,
+        _,
+        _,
+        artifact_generator,
+        delivery_service,
+        workspace,
+    ) = build_pipeline(
+        tmp_path
+    )
+
+    pipeline.process(
+        recording_session
+    )
+
+    assert (
+        delivery_service.received_report
+        is artifact_generator.artifact
+    )
+
+    assert (
+        delivery_service.received_workspace
+        is workspace
+    )
+
+
+def test_pipeline_returns_generated_artifact(
+    tmp_path: Path,
+) -> None:
+    (
+        pipeline,
+        recording_session,
+        _,
+        _,
+        _,
+        _,
+        artifact_generator,
+        _,
         _,
     ) = build_pipeline(
         tmp_path
@@ -291,79 +318,8 @@ def test_pipeline_generates_artifact_from_transcript(
     )
 
     assert (
-        artifact_generator.received_transcript
-        is transcript
-    )
-
-    assert (
         result
         is artifact_generator.artifact
-    )
-
-
-def test_pipeline_persists_meeting_report_json(
-    tmp_path: Path,
-) -> None:
-    (
-        pipeline,
-        recording_session,
-        _,
-        _,
-        _,
-        _,
-        artifact_generator,
-        storage_service,
-        _,
-        workspace,
-    ) = build_pipeline(
-        tmp_path
-    )
-
-    pipeline.process(
-        recording_session
-    )
-
-    assert (
-        storage_service.saved_artifact
-        is artifact_generator.artifact
-    )
-
-    assert (
-        storage_service.saved_filename
-        == workspace.meeting_report_json
-    )
-
-
-def test_pipeline_exports_meeting_report_markdown(
-    tmp_path: Path,
-) -> None:
-    (
-        pipeline,
-        recording_session,
-        _,
-        _,
-        _,
-        _,
-        artifact_generator,
-        _,
-        markdown_exporter,
-        workspace,
-    ) = build_pipeline(
-        tmp_path
-    )
-
-    pipeline.process(
-        recording_session
-    )
-
-    assert (
-        markdown_exporter.exported_artifact
-        is artifact_generator.artifact
-    )
-
-    assert (
-        markdown_exporter.exported_filename
-        == workspace.meeting_report_markdown
     )
 
 
@@ -378,8 +334,7 @@ def test_pipeline_stops_when_transcript_is_invalid(
         _,
         _,
         artifact_generator,
-        storage_service,
-        markdown_exporter,
+        delivery_service,
         _,
     ) = build_pipeline(
         tmp_path,
@@ -417,12 +372,12 @@ def test_pipeline_stops_when_transcript_is_invalid(
     )
 
     assert (
-        storage_service.saved_artifact
+        delivery_service.received_report
         is None
     )
 
     assert (
-        markdown_exporter.exported_artifact
+        delivery_service.received_workspace
         is None
     )
 
@@ -437,24 +392,14 @@ def test_pipeline_stops_when_transcript_is_invalid(
             "artifact_generator",
             {
                 "artifact_generator": None,
-                "storage_service": object(),
-                "markdown_exporter": object(),
+                "artifact_delivery_service": object(),
             },
         ),
         (
-            "storage_service",
+            "artifact_delivery_service",
             {
                 "artifact_generator": object(),
-                "storage_service": None,
-                "markdown_exporter": object(),
-            },
-        ),
-        (
-            "markdown_exporter",
-            {
-                "artifact_generator": object(),
-                "storage_service": object(),
-                "markdown_exporter": None,
+                "artifact_delivery_service": None,
             },
         ),
     ],

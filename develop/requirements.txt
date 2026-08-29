@@ -5,6 +5,7 @@ soundcard
 numpy
 faster-whisper
 python-docx
+reportlab
 pydantic
 pillow
 requests

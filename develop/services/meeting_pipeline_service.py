@@ -23,28 +23,27 @@ class MeetingPipelineService:
     - carga del Transcript;
     - análisis de evidencia;
     - validación del Transcript;
-    - generación del artefacto principal;
-    - persistencia estructurada;
-    - exportación documental.
+    - generación del MeetingReport;
+    - entrega de todos los artefactos derivados.
 
-    La lógica propia del artefacto pertenece al
-    ArtifactGenerator recibido.
+    La generación pertenece al ArtifactGenerator recibido.
+    La persistencia y exportación pertenecen al servicio
+    especializado de entrega.
     """
 
     def __init__(
         self,
         artifact_generator,
-        storage_service,
-        markdown_exporter,
+        artifact_delivery_service,
         transcript_storage_service=None,
         transcript_analyzer=None,
         transcript_validator=None,
     ) -> None:
         self.artifact_generator = artifact_generator
 
-        self.storage_service = storage_service
-
-        self.markdown_exporter = markdown_exporter
+        self.artifact_delivery_service = (
+            artifact_delivery_service
+        )
 
         self.transcript_storage_service = (
             transcript_storage_service
@@ -74,8 +73,7 @@ class MeetingPipelineService:
         Ejecuta el Knowledge Pipeline completo.
 
         Returns:
-            Artefacto de dominio generado, validado,
-            persistido y exportado.
+            MeetingReport generado, validado y entregado.
 
         Raises:
             InsufficientTranscriptEvidenceError:
@@ -83,7 +81,7 @@ class MeetingPipelineService:
                 suficiente para continuar.
 
             También propaga cualquier error producido por
-            ArtifactGenerator, almacenamiento o exportación.
+            generación o entrega de artefactos.
         """
 
         workspace = recording_session.workspace
@@ -113,14 +111,9 @@ class MeetingPipelineService:
             transcript
         )
 
-        self.storage_service.save(
-            artifact,
-            workspace.meeting_report_json,
-        )
-
-        self.markdown_exporter.export(
-            artifact,
-            workspace.meeting_report_markdown,
+        self.artifact_delivery_service.deliver(
+            report=artifact,
+            workspace=workspace,
         )
 
         return artifact
@@ -139,14 +132,9 @@ class MeetingPipelineService:
                 "artifact_generator"
             )
 
-        if self.storage_service is None:
+        if self.artifact_delivery_service is None:
             missing_dependencies.append(
-                "storage_service"
-            )
-
-        if self.markdown_exporter is None:
-            missing_dependencies.append(
-                "markdown_exporter"
+                "artifact_delivery_service"
             )
 
         if missing_dependencies:

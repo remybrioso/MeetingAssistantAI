@@ -1,10 +1,27 @@
 from application.dependency_container import (
     chunk_knowledge_service,
     container,
+    meeting_artifact_delivery_service,
+    meeting_pipeline,
     meeting_report_consolidation_service,
+    meeting_report_docx_exporter,
     meeting_report_generator,
+    meeting_report_pdf_exporter,
+    meeting_report_projection_service,
     staged_chunk_knowledge_service,
     staged_meeting_report_consolidation_service,
+)
+from services.meeting_artifact_delivery_service import (
+    MeetingArtifactDeliveryService,
+)
+from services.meeting_report_docx_exporter import (
+    MeetingReportDocxExporter,
+)
+from services.meeting_report_pdf_exporter import (
+    MeetingReportPdfExporter,
+)
+from services.meeting_report_projection_service import (
+    MeetingReportProjectionService,
 )
 from services.staged_chunk_knowledge_service import (
     StagedChunkKnowledgeService,
@@ -124,4 +141,98 @@ def test_registered_global_service_uses_expected_contracts() -> None:
     assert (
         service.FINAL_PIPELINE_VERSION
         == "meeting_report_global_staged_v1"
+    )
+
+
+def test_container_registers_report_projection_service() -> None:
+    registered = container.get(
+        "meeting_report_projection_service"
+    )
+
+    assert (
+        registered
+        is meeting_report_projection_service
+    )
+
+    assert isinstance(
+        registered,
+        MeetingReportProjectionService,
+    )
+
+
+def test_container_registers_docx_exporter() -> None:
+    registered = container.get(
+        "meeting_report_docx_exporter"
+    )
+
+    assert (
+        registered
+        is meeting_report_docx_exporter
+    )
+
+    assert isinstance(
+        registered,
+        MeetingReportDocxExporter,
+    )
+
+
+def test_container_registers_pdf_exporter() -> None:
+    registered = container.get(
+        "meeting_report_pdf_exporter"
+    )
+
+    assert (
+        registered
+        is meeting_report_pdf_exporter
+    )
+
+    assert isinstance(
+        registered,
+        MeetingReportPdfExporter,
+    )
+
+
+def test_container_registers_artifact_delivery_service() -> None:
+    registered = container.get(
+        "meeting_artifact_delivery_service"
+    )
+
+    assert (
+        registered
+        is meeting_artifact_delivery_service
+    )
+
+    assert isinstance(
+        registered,
+        MeetingArtifactDeliveryService,
+    )
+
+
+def test_pipeline_uses_registered_artifact_delivery_service() -> None:
+    assert (
+        meeting_pipeline
+        .artifact_delivery_service
+        is meeting_artifact_delivery_service
+    )
+
+
+def test_delivery_service_uses_registered_projection_service() -> None:
+    assert (
+        meeting_artifact_delivery_service
+        .projection_service
+        is meeting_report_projection_service
+    )
+
+
+def test_delivery_service_uses_registered_document_exporters() -> None:
+    assert (
+        meeting_artifact_delivery_service
+        .docx_exporter
+        is meeting_report_docx_exporter
+    )
+
+    assert (
+        meeting_artifact_delivery_service
+        .pdf_exporter
+        is meeting_report_pdf_exporter
     )

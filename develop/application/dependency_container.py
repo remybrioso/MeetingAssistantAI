@@ -24,6 +24,9 @@ from services.imported_meeting_service import (
     ImportedMeetingService,
 )
 from services.logger_service import LoggerService
+from services.meeting_artifact_delivery_service import (
+    MeetingArtifactDeliveryService,
+)
 from services.meeting_finalization_service import (
     MeetingFinalizationService,
 )
@@ -33,11 +36,20 @@ from services.meeting_knowledge_assembler import (
 from services.meeting_pipeline_service import (
     MeetingPipelineService,
 )
+from services.meeting_report_docx_exporter import (
+    MeetingReportDocxExporter,
+)
 from services.meeting_report_generator import (
     MeetingReportGenerator,
 )
 from services.meeting_report_markdown_exporter import (
     MeetingReportMarkdownExporter,
+)
+from services.meeting_report_pdf_exporter import (
+    MeetingReportPdfExporter,
+)
+from services.meeting_report_projection_service import (
+    MeetingReportProjectionService,
 )
 from services.meeting_timer import MeetingTimer
 from services.setup.capabilities.capability_runner import (
@@ -201,8 +213,42 @@ meeting_report_generator = MeetingReportGenerator(
     ),
 )
 
+
+# Meeting Artifact Delivery
+meeting_report_projection_service = (
+    MeetingReportProjectionService()
+)
+
 meeting_report_markdown_exporter = (
     MeetingReportMarkdownExporter()
+)
+
+meeting_report_docx_exporter = (
+    MeetingReportDocxExporter()
+)
+
+meeting_report_pdf_exporter = (
+    MeetingReportPdfExporter()
+)
+
+meeting_artifact_delivery_service = (
+    MeetingArtifactDeliveryService(
+        storage_service=(
+            artifact_storage_service
+        ),
+        projection_service=(
+            meeting_report_projection_service
+        ),
+        markdown_exporter=(
+            meeting_report_markdown_exporter
+        ),
+        docx_exporter=(
+            meeting_report_docx_exporter
+        ),
+        pdf_exporter=(
+            meeting_report_pdf_exporter
+        ),
+    )
 )
 
 
@@ -211,15 +257,14 @@ meeting_pipeline = MeetingPipelineService(
     artifact_generator=(
         meeting_report_generator
     ),
+    artifact_delivery_service=(
+        meeting_artifact_delivery_service
+    ),
     transcript_storage_service=(
         transcript_storage_service
     ),
     transcript_analyzer=transcript_analyzer,
     transcript_validator=transcript_validator,
-    storage_service=artifact_storage_service,
-    markdown_exporter=(
-        meeting_report_markdown_exporter
-    ),
 )
 
 
@@ -426,8 +471,28 @@ container.register(
 )
 
 container.register(
+    "meeting_report_projection_service",
+    meeting_report_projection_service,
+)
+
+container.register(
     "meeting_report_markdown_exporter",
     meeting_report_markdown_exporter,
+)
+
+container.register(
+    "meeting_report_docx_exporter",
+    meeting_report_docx_exporter,
+)
+
+container.register(
+    "meeting_report_pdf_exporter",
+    meeting_report_pdf_exporter,
+)
+
+container.register(
+    "meeting_artifact_delivery_service",
+    meeting_artifact_delivery_service,
 )
 
 container.register(
