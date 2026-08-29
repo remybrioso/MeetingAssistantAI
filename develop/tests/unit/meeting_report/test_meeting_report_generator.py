@@ -5,7 +5,6 @@ import pytest
 from models.artifacts.meeting_report import MeetingReport
 from models.chunk_knowledge import ChunkKnowledge
 from models.meeting_knowledge import MeetingKnowledge
-from models.prompt import Prompt
 from models.transcript import Segment, Transcript
 from models.transcript_chunk import TranscriptChunk
 from services.artifact_generator import ArtifactGenerator
@@ -14,6 +13,9 @@ from services.meeting_report_generator import (
 )
 from services.staged_chunk_knowledge_service import (
     StagedChunkKnowledgeService,
+)
+from services.staged_meeting_report_consolidation_service import (
+    StagedMeetingReportConsolidationService,
 )
 
 
@@ -90,31 +92,6 @@ class FakeMeetingKnowledgeAssembler:
         return self.result
 
 
-class FakeConsolidationPromptFormatter:
-    def __init__(self) -> None:
-        self.calls = 0
-        self.received_knowledge = None
-        self.prompt = Prompt(
-            content=(
-                "Prompt de consolidación global."
-            ),
-            version=(
-                "meeting_report_consolidation_v1"
-            ),
-        )
-
-    def format(
-        self,
-        meeting_knowledge,
-    ) -> Prompt:
-        self.calls += 1
-        self.received_knowledge = (
-            meeting_knowledge
-        )
-
-        return self.prompt
-
-
 class FakeConsolidationService:
     def __init__(
         self,
@@ -124,17 +101,12 @@ class FakeConsolidationService:
             results
         )
         self.calls = 0
-        self.received_prompts = []
         self.received_knowledge = []
 
     def generate(
         self,
-        prompt,
         meeting_knowledge,
     ):
-        self.received_prompts.append(
-            prompt
-        )
         self.received_knowledge.append(
             meeting_knowledge
         )
@@ -217,10 +189,10 @@ def build_report() -> MeetingReport:
         provider="ollama",
         model="fake-model",
         prompt_version=(
-            "meeting_report_consolidation_v1"
+            "meeting_report_global_staged_v1"
         ),
         title=(
-            "Seguimiento general del proyecto"
+            "Estado general del proyecto"
         ),
         executive_summary=(
             "Se revisó el estado general del proyecto "
@@ -265,10 +237,6 @@ def build_generator(
         )
     )
 
-    consolidation_formatter = (
-        FakeConsolidationPromptFormatter()
-    )
-
     consolidation_service = (
         FakeConsolidationService(
             consolidation_results
@@ -287,9 +255,6 @@ def build_generator(
         meeting_knowledge_assembler=(
             assembler
         ),
-        consolidation_prompt_formatter=(
-            consolidation_formatter
-        ),
         consolidation_service=(
             consolidation_service
         ),
@@ -300,7 +265,6 @@ def build_generator(
         chunker,
         chunk_service,
         assembler,
-        consolidation_formatter,
         consolidation_service,
         meeting_knowledge,
     )
@@ -320,7 +284,6 @@ def test_generator_chunks_transcript_before_knowledge_extraction() -> None:
         generator,
         chunker,
         chunk_service,
-        _,
         _,
         _,
         _,
@@ -355,7 +318,6 @@ def test_generator_assembles_complete_meeting_knowledge() -> None:
         assembler,
         _,
         _,
-        _,
     ) = build_generator()
 
     generator.generate(
@@ -371,18 +333,19 @@ def test_generator_assembles_complete_meeting_knowledge() -> None:
         assembler.received_chunks
     ) == 1
     assert (
-        assembler.received_chunks[0].chunk_index
+        assembler.received_chunks[
+            0
+        ].chunk_index
         == 0
     )
 
 
-def test_generator_formats_meeting_knowledge_before_consolidation() -> None:
+def test_generator_passes_meeting_knowledge_directly_to_staged_consolidation() -> None:
     (
         generator,
         _,
         _,
         _,
-        consolidation_formatter,
         consolidation_service,
         meeting_knowledge,
     ) = build_generator()
@@ -391,24 +354,12 @@ def test_generator_formats_meeting_knowledge_before_consolidation() -> None:
         build_transcript()
     )
 
-    assert (
-        consolidation_formatter.calls
-        == 1
-    )
-    assert (
-        consolidation_formatter.received_knowledge
-        is meeting_knowledge
-    )
-
     assert consolidation_service.calls == 1
     assert (
         consolidation_service
-        .received_prompts[0]
-        is consolidation_formatter.prompt
-    )
-    assert (
-        consolidation_service
-        .received_knowledge[0]
+        .received_knowledge[
+            0
+        ]
         is meeting_knowledge
     )
 
@@ -433,24 +384,21 @@ def test_generator_returns_consolidated_meeting_report() -> None:
     )
 
 
-def test_generator_rejects_invalid_consolidated_report() -> None:
+def test_generator_rejects_invalid_consolidated_report_after_retry() -> None:
     (
         generator,
         _,
         chunk_service,
-        _,
         _,
         consolidation_service,
         _,
     ) = build_generator(
         consolidation_results=[
             ValueError(
-                "MeetingReport consolidado inválido: "
-                "resumen demasiado corto."
+                "narrativa global inválida"
             ),
             ValueError(
-                "MeetingReport consolidado inválido: "
-                "resumen demasiado corto."
+                "narrativa global inválida"
             ),
         ]
     )
@@ -459,7 +407,7 @@ def test_generator_rejects_invalid_consolidated_report() -> None:
         ValueError,
         match=(
             "MeetingReport inválido después "
-            "de la consolidación"
+            "de la consolidación staged"
         ),
     ):
         generator.generate(
@@ -476,7 +424,6 @@ def test_generator_rejects_invalid_transcript_before_dependencies() -> None:
         chunker,
         chunk_service,
         assembler,
-        consolidation_formatter,
         consolidation_service,
         _,
     ) = build_generator()
@@ -494,14 +441,10 @@ def test_generator_rejects_invalid_transcript_before_dependencies() -> None:
     assert chunker.calls == 0
     assert chunk_service.calls == 0
     assert assembler.calls == 0
-    assert (
-        consolidation_formatter.calls
-        == 0
-    )
     assert consolidation_service.calls == 0
 
 
-def test_generator_uses_staged_and_consolidation_contracts_by_default() -> None:
+def test_generator_uses_staged_contracts_by_default() -> None:
     generator = MeetingReportGenerator()
 
     assert isinstance(
@@ -523,25 +466,50 @@ def test_generator_uses_staged_and_consolidation_contracts_by_default() -> None:
         == "chunk_action_metadata_v1"
     )
 
-    assert (
-        generator
-        .consolidation_prompt_formatter
-        .contract
-        == "meeting_report_consolidation_v1"
+    assert isinstance(
+        generator.consolidation_service,
+        StagedMeetingReportConsolidationService,
     )
 
     assert (
         generator
         .consolidation_service
-        .PROMPT_CONTRACT
-        == "meeting_report_consolidation_v1"
+        .SEMANTIC_CONSOLIDATION_CONTRACT
+        == "meeting_semantic_consolidation_v1"
     )
 
     assert (
         generator
         .consolidation_service
-        .OUTPUT_SCHEMA_CONTRACT
-        == "meeting_report_v1"
+        .NARRATIVE_CONTRACT
+        == "meeting_report_narrative_v1"
+    )
+
+    assert (
+        generator
+        .consolidation_service
+        .FINAL_PIPELINE_VERSION
+        == "meeting_report_global_staged_v1"
+    )
+
+
+def test_generator_no_longer_exposes_legacy_consolidation_formatter() -> None:
+    generator = MeetingReportGenerator()
+
+    assert not hasattr(
+        generator,
+        "consolidation_prompt_formatter",
+    )
+
+    parameters = (
+        inspect.signature(
+            MeetingReportGenerator.__init__
+        ).parameters
+    )
+
+    assert (
+        "consolidation_prompt_formatter"
+        not in parameters
     )
 
 

@@ -3,7 +3,6 @@ import pytest
 from models.artifacts.meeting_report import MeetingReport
 from models.chunk_knowledge import ChunkKnowledge
 from models.meeting_knowledge import MeetingKnowledge
-from models.prompt import Prompt
 from models.transcript import Segment, Transcript
 from models.transcript_chunk import TranscriptChunk
 from services.meeting_report_generator import (
@@ -60,12 +59,17 @@ class ChunkService:
 
 
 class Assembler:
+    def __init__(self) -> None:
+        self.calls = 0
+        self.result = None
+
     def assemble(
         self,
         chunks,
         source_chunk_count,
     ):
-        return MeetingKnowledge(
+        self.calls += 1
+        self.result = MeetingKnowledge(
             source_chunk_count=(
                 source_chunk_count
             ),
@@ -73,26 +77,7 @@ class Assembler:
                 chunks
             ),
         )
-
-
-class ConsolidationFormatter:
-    def __init__(self) -> None:
-        self.calls = 0
-        self.prompt = Prompt(
-            content=(
-                "MeetingKnowledge completo."
-            ),
-            version=(
-                "meeting_report_consolidation_v1"
-            ),
-        )
-
-    def format(
-        self,
-        meeting_knowledge,
-    ):
-        self.calls += 1
-        return self.prompt
+        return self.result
 
 
 class ConsolidationService:
@@ -104,17 +89,12 @@ class ConsolidationService:
             results
         )
         self.calls = 0
-        self.received_prompts = []
         self.received_knowledge = []
 
     def generate(
         self,
-        prompt,
         meeting_knowledge,
     ):
-        self.received_prompts.append(
-            prompt
-        )
         self.received_knowledge.append(
             meeting_knowledge
         )
@@ -157,10 +137,10 @@ def build_report() -> MeetingReport:
         provider="ollama",
         model="fake-model",
         prompt_version=(
-            "meeting_report_consolidation_v1"
+            "meeting_report_global_staged_v1"
         ),
         title=(
-            "Seguimiento general del proyecto"
+            "Avance general del proyecto"
         ),
         executive_summary=(
             "Se revisó el avance general del proyecto "
@@ -179,7 +159,7 @@ def build_generator(
     results,
 ):
     chunk_service = ChunkService()
-    formatter = ConsolidationFormatter()
+    assembler = Assembler()
     service = ConsolidationService(
         results
     )
@@ -189,9 +169,8 @@ def build_generator(
         chunk_knowledge_service=(
             chunk_service
         ),
-        meeting_knowledge_assembler=Assembler(),
-        consolidation_prompt_formatter=(
-            formatter
+        meeting_knowledge_assembler=(
+            assembler
         ),
         consolidation_service=service,
     )
@@ -199,18 +178,18 @@ def build_generator(
     return (
         generator,
         chunk_service,
-        formatter,
+        assembler,
         service,
     )
 
 
-def test_generator_returns_report_on_first_consolidation_attempt() -> None:
+def test_generator_returns_report_on_first_staged_consolidation_attempt() -> None:
     report = build_report()
 
     (
         generator,
         chunk_service,
-        formatter,
+        assembler,
         service,
     ) = build_generator(
         [
@@ -224,27 +203,22 @@ def test_generator_returns_report_on_first_consolidation_attempt() -> None:
 
     assert result is report
     assert chunk_service.calls == 1
-    assert formatter.calls == 1
+    assert assembler.calls == 1
     assert service.calls == 1
-    assert (
-        service.received_prompts[0]
-        is formatter.prompt
-    )
 
 
-def test_generator_uses_corrective_prompt_after_consolidation_error() -> None:
+def test_generator_retries_complete_staged_consolidation_after_value_error() -> None:
     report = build_report()
 
     (
         generator,
         chunk_service,
-        formatter,
+        assembler,
         service,
     ) = build_generator(
         [
             ValueError(
-                "MeetingReport sin grounding válido: "
-                "evidencia inventada."
+                "G2 narrative failure"
             ),
             report,
         ]
@@ -256,49 +230,38 @@ def test_generator_uses_corrective_prompt_after_consolidation_error() -> None:
 
     assert result is report
     assert chunk_service.calls == 1
-    assert formatter.calls == 1
+    assert assembler.calls == 1
     assert service.calls == 2
 
-    first_prompt = (
-        service.received_prompts[0]
-    )
-    second_prompt = (
-        service.received_prompts[1]
+    assert (
+        service.received_knowledge[
+            0
+        ]
+        is service.received_knowledge[
+            1
+        ]
     )
 
-    assert first_prompt is formatter.prompt
-    assert second_prompt is not first_prompt
     assert (
-        second_prompt.version
-        == first_prompt.version
-    )
-    assert (
-        first_prompt.content
-        in second_prompt.content
-    )
-    assert (
-        "evidencia inventada"
-        in second_prompt.content
-    )
-    assert (
-        "No inventes ni modifiques evidencias."
-        in second_prompt.content
+        service.received_knowledge[
+            0
+        ]
+        is assembler.result
     )
 
 
-def test_generator_does_not_repeat_chunk_extraction_on_retry() -> None:
+def test_generator_does_not_repeat_chunk_extraction_on_global_retry() -> None:
     report = build_report()
 
     (
         generator,
         chunk_service,
-        _,
+        assembler,
         service,
     ) = build_generator(
         [
             ValueError(
-                "MeetingReport consolidado inválido: "
-                "resumen demasiado corto."
+                "G1 semantic failure"
             ),
             report,
         ]
@@ -310,25 +273,22 @@ def test_generator_does_not_repeat_chunk_extraction_on_retry() -> None:
 
     assert service.calls == 2
     assert chunk_service.calls == 1
-    assert (
-        service.received_knowledge[0]
-        is service.received_knowledge[1]
-    )
+    assert assembler.calls == 1
 
 
-def test_generator_reports_last_error_after_exhausting_attempts() -> None:
+def test_generator_reports_last_staged_error_after_exhausting_attempts() -> None:
     (
         generator,
         chunk_service,
-        _,
+        assembler,
         service,
     ) = build_generator(
         [
             ValueError(
-                "primer error"
+                "primer error staged"
             ),
             ValueError(
-                "segundo error"
+                "segundo error staged"
             ),
         ]
     )
@@ -337,7 +297,7 @@ def test_generator_reports_last_error_after_exhausting_attempts() -> None:
         ValueError,
         match=(
             "MeetingReport inválido después "
-            "de la consolidación"
+            "de la consolidación staged"
         ),
     ) as error:
         generator.generate(
@@ -345,80 +305,45 @@ def test_generator_reports_last_error_after_exhausting_attempts() -> None:
         )
 
     assert (
-        "segundo error"
+        "segundo error staged"
         in str(
             error.value
         )
     )
     assert service.calls == 2
     assert chunk_service.calls == 1
+    assert assembler.calls == 1
 
 
-def test_corrective_prompt_preserves_consolidation_contract() -> None:
-    base_prompt = Prompt(
-        content=(
-            "MeetingKnowledge original."
-        ),
-        version=(
-            "meeting_report_consolidation_v1"
-        ),
-    )
-
-    corrected = (
-        MeetingReportGenerator
-        ._build_corrective_prompt(
-            base_prompt=base_prompt,
-            errors=[
-                (
-                    "action_items elemento #1 "
-                    "sin grounding."
-                ),
-            ],
-        )
-    )
-
-    assert (
-        corrected.version
-        == "meeting_report_consolidation_v1"
-    )
-    assert (
-        "MeetingKnowledge original."
-        in corrected.content
-    )
-    assert (
-        "action_items elemento #1 sin grounding."
-        in corrected.content
-    )
-    assert (
-        "misma categoría semántica"
-        in corrected.content
-    )
-
-
-def test_corrective_prompt_rejects_invalid_base_prompt() -> None:
-    with pytest.raises(
-        TypeError,
-        match="base_prompt debe ser una instancia",
-    ):
-        MeetingReportGenerator._build_corrective_prompt(
-            base_prompt=object(),
-            errors=[],
-        )
-
-
-def test_corrective_prompt_rejects_invalid_errors_collection() -> None:
-    with pytest.raises(
-        TypeError,
-        match="errors debe ser una lista",
-    ):
-        MeetingReportGenerator._build_corrective_prompt(
-            base_prompt=Prompt(
-                content="Prompt.",
-                version=(
-                    "meeting_report_consolidation_v1"
-                ),
+def test_generator_does_not_retry_non_value_error_infrastructure_failure() -> None:
+    (
+        generator,
+        chunk_service,
+        assembler,
+        service,
+    ) = build_generator(
+        [
+            RuntimeError(
+                "provider unavailable"
             ),
-            errors=(
-                "error",
-            ),
+        ]
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="provider unavailable",
+    ):
+        generator.generate(
+            build_transcript()
         )
+
+    assert service.calls == 1
+    assert chunk_service.calls == 1
+    assert assembler.calls == 1
+
+
+def test_generator_has_no_legacy_corrective_prompt_builder() -> None:
+    assert not hasattr(
+        MeetingReportGenerator,
+        "_build_corrective_prompt",
+    )

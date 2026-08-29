@@ -30,14 +30,8 @@ from services.meeting_finalization_service import (
 from services.meeting_knowledge_assembler import (
     MeetingKnowledgeAssembler,
 )
-from services.meeting_knowledge_prompt_formatter import (
-    MeetingKnowledgePromptFormatter,
-)
 from services.meeting_pipeline_service import (
     MeetingPipelineService,
-)
-from services.meeting_report_consolidation_service import (
-    MeetingReportConsolidationService,
 )
 from services.meeting_report_generator import (
     MeetingReportGenerator,
@@ -57,6 +51,9 @@ from services.setup.wizard.setup_wizard_service import (
 )
 from services.staged_chunk_knowledge_service import (
     StagedChunkKnowledgeService,
+)
+from services.staged_meeting_report_consolidation_service import (
+    StagedMeetingReportConsolidationService,
 )
 from services.summary_markdown_exporter import (
     SummaryMarkdownExporter,
@@ -172,19 +169,23 @@ meeting_knowledge_assembler = (
 )
 
 
-# Meeting Intelligence: consolidación global
-meeting_knowledge_prompt_formatter = (
-    MeetingKnowledgePromptFormatter()
-)
-
+# Meeting Intelligence: consolidación global staged
 meeting_report_validator = (
     MeetingReportValidator()
 )
 
-meeting_report_consolidation_service = (
-    MeetingReportConsolidationService(
-        report_validator=meeting_report_validator,
+staged_meeting_report_consolidation_service = (
+    StagedMeetingReportConsolidationService(
+        report_validator=(
+            meeting_report_validator
+        ),
     )
+)
+
+# Alias genérico conservado para consumidores existentes.
+# La implementación productiva global es exclusivamente staged.
+meeting_report_consolidation_service = (
+    staged_meeting_report_consolidation_service
 )
 
 meeting_report_generator = MeetingReportGenerator(
@@ -195,11 +196,8 @@ meeting_report_generator = MeetingReportGenerator(
     meeting_knowledge_assembler=(
         meeting_knowledge_assembler
     ),
-    consolidation_prompt_formatter=(
-        meeting_knowledge_prompt_formatter
-    ),
     consolidation_service=(
-        meeting_report_consolidation_service
+        staged_meeting_report_consolidation_service
     ),
 )
 
@@ -406,18 +404,20 @@ container.register(
 )
 
 container.register(
-    "meeting_knowledge_prompt_formatter",
-    meeting_knowledge_prompt_formatter,
-)
-
-container.register(
     "meeting_report_validator",
     meeting_report_validator,
 )
 
 container.register(
+    "staged_meeting_report_consolidation_service",
+    staged_meeting_report_consolidation_service,
+)
+
+# Alias de compatibilidad: conserva la abstracción genérica,
+# pero no registra MeetingReportConsolidationService legacy.
+container.register(
     "meeting_report_consolidation_service",
-    meeting_report_consolidation_service,
+    staged_meeting_report_consolidation_service,
 )
 
 container.register(

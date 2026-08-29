@@ -3,7 +3,6 @@ import pytest
 from models.artifacts.meeting_report import MeetingReport
 from models.chunk_knowledge import ChunkKnowledge
 from models.meeting_knowledge import MeetingKnowledge
-from models.prompt import Prompt
 from models.transcript import Segment, Transcript
 from models.transcript_chunk import TranscriptChunk
 from services.meeting_report_generator import (
@@ -99,30 +98,6 @@ class FakeMeetingKnowledgeAssembler:
         return self.result
 
 
-class FakeConsolidationPromptFormatter:
-    def __init__(self) -> None:
-        self.calls = 0
-        self.received_knowledge = None
-        self.prompt = Prompt(
-            content=(
-                "Prompt global."
-            ),
-            version=(
-                "meeting_report_consolidation_v1"
-            ),
-        )
-
-    def format(
-        self,
-        meeting_knowledge,
-    ):
-        self.calls += 1
-        self.received_knowledge = (
-            meeting_knowledge
-        )
-        return self.prompt
-
-
 class FakeConsolidationService:
     def __init__(
         self,
@@ -132,17 +107,12 @@ class FakeConsolidationService:
             results
         )
         self.calls = 0
-        self.received_prompts = []
         self.received_knowledge = []
 
     def generate(
         self,
-        prompt,
         meeting_knowledge,
     ):
-        self.received_prompts.append(
-            prompt
-        )
         self.received_knowledge.append(
             meeting_knowledge
         )
@@ -268,10 +238,10 @@ def build_report() -> MeetingReport:
         provider="ollama",
         model="fake-model",
         prompt_version=(
-            "meeting_report_consolidation_v1"
+            "meeting_report_global_staged_v1"
         ),
         title=(
-            "Seguimiento y continuidad del proyecto"
+            "Estado y continuidad del proyecto"
         ),
         executive_summary=(
             "Se revisó el estado inicial del proyecto "
@@ -310,9 +280,6 @@ def build_generator(
             meeting_knowledge
         )
     )
-    consolidation_formatter = (
-        FakeConsolidationPromptFormatter()
-    )
     consolidation_service = (
         FakeConsolidationService(
             consolidation_results
@@ -331,9 +298,6 @@ def build_generator(
         meeting_knowledge_assembler=(
             assembler
         ),
-        consolidation_prompt_formatter=(
-            consolidation_formatter
-        ),
         consolidation_service=(
             consolidation_service
         ),
@@ -344,7 +308,6 @@ def build_generator(
         chunker,
         chunk_service,
         assembler,
-        consolidation_formatter,
         consolidation_service,
         meeting_knowledge,
     )
@@ -356,7 +319,6 @@ def test_generator_processes_every_chunk_once() -> None:
         chunker,
         chunk_service,
         assembler,
-        consolidation_formatter,
         consolidation_service,
         meeting_knowledge,
     ) = build_generator()
@@ -406,16 +368,12 @@ def test_generator_processes_every_chunk_once() -> None:
         1,
     ]
 
-    assert (
-        consolidation_formatter
-        .received_knowledge
-        is meeting_knowledge
-    )
-
     assert consolidation_service.calls == 1
     assert (
         consolidation_service
-        .received_knowledge[0]
+        .received_knowledge[
+            0
+        ]
         is meeting_knowledge
     )
 
@@ -426,7 +384,6 @@ def test_generator_preserves_early_and_late_chunk_knowledge() -> None:
         _,
         _,
         assembler,
-        _,
         _,
         _,
     ) = build_generator()
@@ -441,12 +398,20 @@ def test_generator_preserves_early_and_late_chunk_knowledge() -> None:
 
     assert (
         "estado inicial"
-        in received[0].key_points[0]
+        in received[
+            0
+        ].key_points[
+            0
+        ]
     )
 
     assert (
         "continuará"
-        in received[1].conclusions[0]
+        in received[
+            1
+        ].conclusions[
+            0
+        ]
     )
 
 
@@ -520,9 +485,6 @@ def test_generator_propagates_chunk_extraction_error_without_retry() -> None:
                 build_meeting_knowledge()
             )
         ),
-        consolidation_prompt_formatter=(
-            FakeConsolidationPromptFormatter()
-        ),
         consolidation_service=(
             consolidation_service
         ),
@@ -592,9 +554,6 @@ def test_generator_rejects_empty_meeting_knowledge_before_consolidation() -> Non
                 empty_meeting_knowledge
             )
         ),
-        consolidation_prompt_formatter=(
-            FakeConsolidationPromptFormatter()
-        ),
         consolidation_service=(
             consolidation_service
         ),
@@ -611,3 +570,34 @@ def test_generator_rejects_empty_meeting_knowledge_before_consolidation() -> Non
         )
 
     assert consolidation_service.calls == 0
+
+
+def test_generator_propagates_global_infrastructure_error_without_retry() -> None:
+    (
+        generator,
+        _,
+        chunk_service,
+        assembler,
+        consolidation_service,
+        _,
+    ) = build_generator(
+        consolidation_results=[
+            RuntimeError(
+                "ollama unavailable"
+            ),
+        ]
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="ollama unavailable",
+    ):
+        generator.generate(
+            build_transcript()
+        )
+
+    assert len(
+        chunk_service.calls
+    ) == 2
+    assert assembler.calls == 1
+    assert consolidation_service.calls == 1
