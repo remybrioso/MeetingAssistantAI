@@ -1,5 +1,54 @@
 # Changelog
 
+## v0.9.0-alpha.2
+
+### Added
+
+- Ejecutable productivo de Windows mediante PyInstaller en modo one-folder.
+- Instalador de Windows mediante Inno Setup.
+- Setup Wizard de primera ejecución con acciones reparables.
+- Descarga explícita del modelo de transcripción mediante Faster-Whisper.
+- Onboarding de Ollama desde su página oficial.
+- Descarga explícita y verificación del modelo `qwen2.5:3b`.
+- Apertura asistida de la configuración de sonido de Windows.
+- Documentación de instalación, first-run y release.
+
+### Changed
+
+- El runtime productivo ya no depende de Python ni de `.venv` en el equipo del usuario.
+- El Setup Wizard distingue entre reparaciones internas y acciones externas que requieren intervención del usuario.
+- El audio del sistema puede permanecer en estado degradado sin bloquear la aplicación cuando el micrófono sigue siendo utilizable.
+- La versión de publicación se promueve de `v0.9.0-alpha.1` a `v0.9.0-alpha.2` para mantener trazabilidad entre código y artefactos binarios.
+
+### Release Engineering
+
+- Build productivo GUI sin consola.
+- Instalación por usuario sin requerir privilegios administrativos.
+- Desinstalación validada preservando datos de reuniones del usuario.
+- Runtime congelado validado fuera del repositorio y de `.venv`.
+- First-run validado desde instalación real.
+- Onboarding validado con dependencias deliberadamente ausentes.
+- Contratos de PyInstaller e Inno Setup cubiertos por tests.
+
+### Quality
+
+Baseline previo a publicación:
+
+- 941 tests passed.
+- 2 tests skipped.
+- 0 failures.
+
+E2E de release validados:
+
+- runtime congelado desde directorio ajeno al repositorio;
+- instalación limpia;
+- modelo de transcripción ausente → descarga → disponible;
+- Ollama ausente → acción requerida → disponible;
+- `qwen2.5:3b` ausente → descarga → disponible;
+- audio disponible o degradado sin bloquear la continuación.
+
+---
+
 ## v0.9.0-alpha.1
 
 ### Added

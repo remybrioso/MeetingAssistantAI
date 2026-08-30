@@ -23,8 +23,8 @@ def test_runtime_version_matches_version_file() -> None:
     assert release_version == f"v{VERSION}"
 
 
-def test_runtime_version_is_current_m4_release() -> None:
-    assert VERSION == "0.9.0-alpha.1"
+def test_runtime_version_is_current_release() -> None:
+    assert VERSION == "0.9.0-alpha.2"
 
 
 def test_runtime_milestone_is_ai_pipeline() -> None:
