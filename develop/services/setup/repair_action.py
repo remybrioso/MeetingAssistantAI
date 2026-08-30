@@ -51,7 +51,8 @@ REPAIR_ACTION_PRESENTATION = {
         "requerido por MAI."
     ),
     RepairAction.INSTALL_AI_PROVIDER: (
-        "Instala o inicia el motor de inteligencia artificial."
+        "Instala Ollama desde su sitio oficial o inicia "
+        "la aplicación si ya está instalada."
     ),
     RepairAction.DOWNLOAD_AI_MODEL: (
         "Descarga el modelo de inteligencia artificial requerido."
@@ -83,7 +84,7 @@ REPAIR_ACTION_BUTTON_LABELS = {
         "Descargar modelo"
     ),
     RepairAction.INSTALL_AI_PROVIDER: (
-        "Preparar motor de IA"
+        "Abrir descarga de Ollama"
     ),
     RepairAction.DOWNLOAD_AI_MODEL: (
         "Descargar modelo de IA"

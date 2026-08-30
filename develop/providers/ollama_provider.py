@@ -11,6 +11,7 @@ import requests
 from ai_config import (
     HEALTH_TIMEOUT,
     OLLAMA_MODEL,
+    OLLAMA_PULL_TIMEOUT,
     OLLAMA_URL,
     REQUEST_TIMEOUT,
 )
@@ -36,6 +37,10 @@ class OllamaProvider(AIProvider):
 
         self.tags_url = (
             f"{self.base_url}/api/tags"
+        )
+
+        self.pull_url = (
+            f"{self.base_url}/api/pull"
         )
 
     def generate(
@@ -118,6 +123,40 @@ class OllamaProvider(AIProvider):
             )
 
         return generated_text
+
+    def pull_model(self) -> dict:
+        """
+        Descarga explícitamente el modelo configurado
+        utilizando la API local de Ollama.
+        """
+
+        response = requests.post(
+            self.pull_url,
+            json={
+                "model": self.model,
+                "stream": False,
+            },
+            timeout=OLLAMA_PULL_TIMEOUT,
+        )
+
+        response.raise_for_status()
+
+        payload = response.json()
+
+        status = str(
+            payload.get(
+                "status",
+                "",
+            )
+        ).strip().lower()
+
+        if status != "success":
+            raise ValueError(
+                "Ollama no confirmó la descarga "
+                "del modelo configurado."
+            )
+
+        return payload
 
     def health(
         self,

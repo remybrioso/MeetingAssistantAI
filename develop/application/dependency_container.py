@@ -52,6 +52,7 @@ from services.meeting_report_projection_service import (
     MeetingReportProjectionService,
 )
 from services.meeting_timer import MeetingTimer
+from providers.ollama_provider import OllamaProvider
 from services.setup.capabilities.capability_runner import (
     CapabilityRunner,
 )
@@ -61,6 +62,12 @@ from services.setup.default_capability_registry import (
 from services.setup.repair_action import RepairAction
 from services.setup.repair_executor import (
     SetupRepairExecutor,
+)
+from services.setup.repairs.ollama_install_repair import (
+    OllamaInstallRepair,
+)
+from services.setup.repairs.ollama_model_repair import (
+    OllamaModelRepair,
 )
 from services.setup.repairs.transcription_model_repair import (
     TranscriptionModelRepair,
@@ -122,8 +129,11 @@ configuration = ConfigurationService()
 
 
 # Setup Wizard
+ollama_provider = OllamaProvider()
+
 capability_registry = build_default_capability_registry(
-    configuration=configuration
+    configuration=configuration,
+    ai_provider=ollama_provider,
 )
 
 capability_runner = CapabilityRunner(
@@ -142,10 +152,26 @@ transcription_model_repair = (
     )
 )
 
+ollama_install_repair = (
+    OllamaInstallRepair()
+)
+
+ollama_model_repair = (
+    OllamaModelRepair(
+        provider=ollama_provider
+    )
+)
+
 setup_repair_executor = SetupRepairExecutor(
     handlers={
         RepairAction.DOWNLOAD_TRANSCRIPTION_MODEL: (
             transcription_model_repair
+        ),
+        RepairAction.INSTALL_AI_PROVIDER: (
+            ollama_install_repair
+        ),
+        RepairAction.DOWNLOAD_AI_MODEL: (
+            ollama_model_repair
         ),
     }
 )
@@ -370,8 +396,23 @@ container.register(
 )
 
 container.register(
+    "ollama_provider",
+    ollama_provider,
+)
+
+container.register(
     "transcription_model_repair",
     transcription_model_repair,
+)
+
+container.register(
+    "ollama_install_repair",
+    ollama_install_repair,
+)
+
+container.register(
+    "ollama_model_repair",
+    ollama_model_repair,
 )
 
 container.register(

@@ -305,3 +305,45 @@ def test_failed_repair_does_not_recheck_wizard() -> None:
         "setup_repair_ui_started",
         "setup_repair_ui_completed",
     ]
+
+
+def test_external_repair_waits_for_user_action() -> None:
+    repair_executor = FakeRepairExecutor(
+        executable=True,
+        result=RepairExecutionResult(
+            action=RepairAction.INSTALL_AI_PROVIDER,
+            status=(
+                RepairExecutionStatus
+                .USER_ACTION_REQUIRED
+            ),
+            message="Instala Ollama.",
+        ),
+    )
+
+    (
+        controller,
+        bus,
+        _,
+        wizard,
+    ) = _build_controller(
+        repair_executor
+    )
+
+    accepted = controller.request_repair(
+        "artificial-intelligence",
+        RepairAction.INSTALL_AI_PROVIDER,
+    )
+
+    assert accepted is True
+    assert wizard.run_count == 0
+
+    event_names = [
+        name
+        for name, _
+        in bus.events
+    ]
+
+    assert event_names == [
+        "setup_repair_ui_started",
+        "setup_repair_ui_completed",
+    ]

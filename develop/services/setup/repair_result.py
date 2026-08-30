@@ -15,6 +15,7 @@ class RepairExecutionStatus(str, Enum):
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
     UNSUPPORTED = "UNSUPPORTED"
+    USER_ACTION_REQUIRED = "USER_ACTION_REQUIRED"
 
 
 @dataclass(frozen=True)
@@ -46,4 +47,11 @@ class RepairExecutionResult:
         return (
             self.status
             == RepairExecutionStatus.UNSUPPORTED
+        )
+
+    @property
+    def user_action_required(self) -> bool:
+        return (
+            self.status
+            == RepairExecutionStatus.USER_ACTION_REQUIRED
         )

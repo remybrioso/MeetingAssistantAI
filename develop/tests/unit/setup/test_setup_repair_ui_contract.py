@@ -20,7 +20,7 @@ def test_transcription_repair_has_explicit_download_label() -> None:
     )
 
 
-def test_default_container_registers_only_transcription_repair() -> None:
+def test_default_container_registers_onboarding_repairs() -> None:
     from application.dependency_container import (
         container,
     )
@@ -33,12 +33,16 @@ def test_default_container_registers_only_transcription_repair() -> None:
         RepairAction.DOWNLOAD_TRANSCRIPTION_MODEL
     )
 
-    assert not executor.can_execute(
+    assert executor.can_execute(
         RepairAction.DOWNLOAD_AI_MODEL
     )
 
-    assert not executor.can_execute(
+    assert executor.can_execute(
         RepairAction.INSTALL_AI_PROVIDER
+    )
+
+    assert not executor.can_execute(
+        RepairAction.REPAIR_AUDIO_DEVICES
     )
 
 
@@ -110,4 +114,20 @@ def test_main_window_subscribes_repair_events() -> None:
         "setup_repair_ui_failed",
     }.issubset(
         set(fake.ui_events.events)
+    )
+
+
+def test_ai_onboarding_button_labels_are_explicit() -> None:
+    assert (
+        REPAIR_ACTION_BUTTON_LABELS[
+            RepairAction.INSTALL_AI_PROVIDER
+        ]
+        == "Abrir descarga de Ollama"
+    )
+
+    assert (
+        REPAIR_ACTION_BUTTON_LABELS[
+            RepairAction.DOWNLOAD_AI_MODEL
+        ]
+        == "Descargar modelo de IA"
     )

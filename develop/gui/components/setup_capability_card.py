@@ -29,6 +29,11 @@ STATUS_PRESENTATION = {
         "label": "Preparando",
         "color": "#4EA1FF",
     },
+    "USER_ACTION_REQUIRED": {
+        "symbol": "●",
+        "label": "Acción requerida",
+        "color": "#F4B942",
+    },
     "AVAILABLE": {
         "symbol": "●",
         "label": "Disponible",
@@ -274,6 +279,14 @@ class SetupCapabilityCard(ctk.CTkFrame):
                 text="Verificando...",
             )
 
+            return
+
+        if result.user_action_required:
+            self._apply_status(
+                status="USER_ACTION_REQUIRED",
+                message=result.message,
+                repair_action=result.action,
+            )
             return
 
         self._apply_status(
