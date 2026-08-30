@@ -13,6 +13,7 @@ from services.setup.capabilities.capability_result import (
     CapabilityResult,
     CapabilityStatus,
 )
+from services.setup.repair_action import RepairAction
 from services.setup.task_result import TaskStatus
 from services.setup.tasks.runtime_resources_task import (
     RuntimeResourcesTask,
@@ -48,12 +49,8 @@ class RuntimeResourcesCapability(Capability):
     def get_tasks(self) -> list:
         return [
             RuntimeResourcesTask(
-                runtime_paths=(
-                    self.runtime_paths
-                ),
-                schema_loader=(
-                    self.schema_loader
-                ),
+                runtime_paths=self.runtime_paths,
+                schema_loader=self.schema_loader,
             )
         ]
 
@@ -65,9 +62,7 @@ class RuntimeResourcesCapability(Capability):
             return CapabilityResult(
                 capability_id=self.capability_id,
                 name=self.name,
-                status=(
-                    CapabilityStatus.UNAVAILABLE
-                ),
+                status=CapabilityStatus.UNAVAILABLE,
                 message=(
                     "No fue posible comprobar los "
                     "recursos internos de MAI."
@@ -90,9 +85,7 @@ class RuntimeResourcesCapability(Capability):
             return CapabilityResult(
                 capability_id=self.capability_id,
                 name=self.name,
-                status=(
-                    CapabilityStatus.AVAILABLE
-                ),
+                status=CapabilityStatus.AVAILABLE,
                 message=(
                     "Los recursos internos de MAI "
                     "están disponibles."
@@ -108,9 +101,7 @@ class RuntimeResourcesCapability(Capability):
         return CapabilityResult(
             capability_id=self.capability_id,
             name=self.name,
-            status=(
-                CapabilityStatus.UNAVAILABLE
-            ),
+            status=CapabilityStatus.UNAVAILABLE,
             message=(
                 "La instalación de MAI no contiene "
                 "todos los recursos requeridos."
@@ -121,6 +112,7 @@ class RuntimeResourcesCapability(Capability):
             ),
             repairable=True,
             repair_action=(
-                "REPAIR_APPLICATION_INSTALLATION"
+                RepairAction
+                .REPAIR_APPLICATION_INSTALLATION
             ),
         )

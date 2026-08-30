@@ -12,6 +12,7 @@ from services.setup.capabilities.capability_result import (
     CapabilityResult,
     CapabilityStatus,
 )
+from services.setup.repair_action import RepairAction
 from services.setup.task_result import TaskStatus
 from services.setup.tasks.ai_provider_health_task import (
     AIProviderHealthTask,
@@ -60,13 +61,10 @@ class AICapability(Capability):
                     ),
                 },
                 repairable=True,
-                repair_action=(
-                    "REPAIR_AI_CAPABILITY"
-                ),
+                repair_action=RepairAction.REPAIR_AI_CAPABILITY,
             )
 
         task_result = task_results[0]
-
         details = dict(
             task_result.details
         )
@@ -113,9 +111,7 @@ class AICapability(Capability):
                 task_results=task_results,
                 details=details,
                 repairable=True,
-                repair_action=(
-                    "INSTALL_AI_PROVIDER"
-                ),
+                repair_action=RepairAction.INSTALL_AI_PROVIDER,
             )
 
         if not model_found:
@@ -131,9 +127,7 @@ class AICapability(Capability):
                 task_results=task_results,
                 details=details,
                 repairable=True,
-                repair_action=(
-                    "DOWNLOAD_AI_MODEL"
-                ),
+                repair_action=RepairAction.DOWNLOAD_AI_MODEL,
             )
 
         return CapabilityResult(
@@ -147,7 +141,5 @@ class AICapability(Capability):
             task_results=task_results,
             details=details,
             repairable=True,
-            repair_action=(
-                "REPAIR_AI_CAPABILITY"
-            ),
+            repair_action=RepairAction.REPAIR_AI_CAPABILITY,
         )

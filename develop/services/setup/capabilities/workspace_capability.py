@@ -14,6 +14,7 @@ from services.setup.capabilities.capability_result import (
     CapabilityResult,
     CapabilityStatus,
 )
+from services.setup.repair_action import RepairAction
 from services.setup.task_result import TaskStatus
 from services.setup.tasks.initialize_output_directory_task import (
     InitializeOutputDirectoryTask,
@@ -87,9 +88,7 @@ class WorkspaceCapability(Capability):
                     ),
                 },
                 repairable=True,
-                repair_action=(
-                    "REPAIR_WORKSPACE"
-                ),
+                repair_action=RepairAction.REPAIR_WORKSPACE,
             )
 
         failed_results = [
@@ -119,9 +118,7 @@ class WorkspaceCapability(Capability):
                     "error": failed_task.error,
                 },
                 repairable=True,
-                repair_action=(
-                    "REPAIR_WORKSPACE"
-                ),
+                repair_action=RepairAction.REPAIR_WORKSPACE,
             )
 
         workspace_verified = any(
@@ -148,9 +145,7 @@ class WorkspaceCapability(Capability):
                     "workspace_verified": False,
                 },
                 repairable=True,
-                repair_action=(
-                    "REPAIR_WORKSPACE"
-                ),
+                repair_action=RepairAction.REPAIR_WORKSPACE,
             )
 
         output_task = next(

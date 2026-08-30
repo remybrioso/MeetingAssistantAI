@@ -7,6 +7,10 @@ para representar una capacidad de MAI.
 
 import customtkinter as ctk
 
+from services.setup.repair_action import (
+    REPAIR_ACTION_PRESENTATION,
+)
+
 
 STATUS_PRESENTATION = {
     "PENDING": {
@@ -214,34 +218,6 @@ class SetupCapabilityCard(ctk.CTkFrame):
             status,
             STATUS_PRESENTATION["PENDING"],
         )
-
-        REPAIR_ACTION_PRESENTATION = {
-        "CONFIGURE_SYSTEM_AUDIO": (
-            "Configura la captura del audio del equipo "
-            "para incluir las voces de los participantes."
-        ),
-        "CONFIGURE_MICROPHONE": (
-            "Selecciona o conecta un micrófono disponible."
-        ),
-        "INSTALL_AI_PROVIDER": (
-            "Instala o inicia el motor de inteligencia artificial."
-        ),
-        "DOWNLOAD_AI_MODEL": (
-            "Descarga el modelo de inteligencia artificial requerido."
-        ),
-        "REPAIR_AI_CAPABILITY": (
-            "Revisa la configuración del motor de inteligencia artificial."
-        ),
-        "REPAIR_AUDIO_DEVICES": (
-            "Revisa los dispositivos y controladores de audio."
-        ),
-        "CREATE_OUTPUT_DIRECTORY": (
-            "Permite que MAI cree la carpeta donde guardará las reuniones."
-        ),
-        "REPAIR_WORKSPACE": (
-            "Revisa la carpeta de almacenamiento de reuniones."
-        ),
-        }
 
         self.status_symbol.configure(
             text=presentation["symbol"],

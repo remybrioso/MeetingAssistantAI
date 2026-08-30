@@ -12,6 +12,7 @@ from services.setup.capabilities.capability_result import (
     CapabilityResult,
     CapabilityStatus,
 )
+from services.setup.repair_action import RepairAction
 from services.setup.task_result import TaskStatus
 from services.setup.tasks.transcription_model_task import (
     TranscriptionModelTask,
@@ -70,9 +71,7 @@ class TranscriptionCapability(Capability):
             return CapabilityResult(
                 capability_id=self.capability_id,
                 name=self.name,
-                status=(
-                    CapabilityStatus.UNAVAILABLE
-                ),
+                status=CapabilityStatus.UNAVAILABLE,
                 message=(
                     "No fue posible comprobar "
                     "la transcripción."
@@ -85,7 +84,8 @@ class TranscriptionCapability(Capability):
                 },
                 repairable=True,
                 repair_action=(
-                    "DOWNLOAD_TRANSCRIPTION_MODEL"
+                    RepairAction
+                    .DOWNLOAD_TRANSCRIPTION_MODEL
                 ),
             )
 
@@ -101,9 +101,7 @@ class TranscriptionCapability(Capability):
             return CapabilityResult(
                 capability_id=self.capability_id,
                 name=self.name,
-                status=(
-                    CapabilityStatus.AVAILABLE
-                ),
+                status=CapabilityStatus.AVAILABLE,
                 message=(
                     "MAI puede transcribir reuniones "
                     "con el modelo configurado."
@@ -117,9 +115,7 @@ class TranscriptionCapability(Capability):
         return CapabilityResult(
             capability_id=self.capability_id,
             name=self.name,
-            status=(
-                CapabilityStatus.UNAVAILABLE
-            ),
+            status=CapabilityStatus.UNAVAILABLE,
             message=(
                 "El modelo de transcripción "
                 "necesario no está instalado."
@@ -128,6 +124,7 @@ class TranscriptionCapability(Capability):
             details=details,
             repairable=True,
             repair_action=(
-                "DOWNLOAD_TRANSCRIPTION_MODEL"
+                RepairAction
+                .DOWNLOAD_TRANSCRIPTION_MODEL
             ),
         )

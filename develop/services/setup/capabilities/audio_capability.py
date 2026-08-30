@@ -12,6 +12,7 @@ from services.setup.capabilities.capability_result import (
     CapabilityResult,
     CapabilityStatus,
 )
+from services.setup.repair_action import RepairAction
 from services.setup.task_result import TaskStatus
 from services.setup.tasks.audio_health_task import (
     AudioHealthTask,
@@ -65,13 +66,10 @@ class AudioCapability(Capability):
                     ),
                 },
                 repairable=True,
-                repair_action=(
-                    "REPAIR_AUDIO_DEVICES"
-                ),
+                repair_action=RepairAction.REPAIR_AUDIO_DEVICES,
             )
 
         task_result = task_results[0]
-
         details = dict(
             task_result.details
         )
@@ -99,9 +97,7 @@ class AudioCapability(Capability):
                 task_results=task_results,
                 details=details,
                 repairable=True,
-                repair_action=(
-                    "CONFIGURE_MICROPHONE"
-                ),
+                repair_action=RepairAction.CONFIGURE_MICROPHONE,
             )
 
         if not system_audio_available:
@@ -118,9 +114,7 @@ class AudioCapability(Capability):
                 task_results=task_results,
                 details=details,
                 repairable=True,
-                repair_action=(
-                    "CONFIGURE_SYSTEM_AUDIO"
-                ),
+                repair_action=RepairAction.CONFIGURE_SYSTEM_AUDIO,
             )
 
         if (
@@ -153,7 +147,5 @@ class AudioCapability(Capability):
             task_results=task_results,
             details=details,
             repairable=True,
-            repair_action=(
-                "REPAIR_AUDIO_DEVICES"
-            ),
+            repair_action=RepairAction.REPAIR_AUDIO_DEVICES,
         )
