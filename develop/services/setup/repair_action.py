@@ -61,14 +61,16 @@ REPAIR_ACTION_PRESENTATION = {
         "Revisa la configuración del motor de inteligencia artificial."
     ),
     RepairAction.CONFIGURE_MICROPHONE: (
-        "Selecciona o conecta un micrófono disponible."
+        "Abre la configuración de sonido de Windows para "
+        "conectar o seleccionar un micrófono utilizable."
     ),
     RepairAction.CONFIGURE_SYSTEM_AUDIO: (
-        "Configura la captura del audio del equipo "
-        "para incluir las voces de los participantes."
+        "Abre la configuración de sonido de Windows para "
+        "comprobar el dispositivo de salida predeterminado."
     ),
     RepairAction.REPAIR_AUDIO_DEVICES: (
-        "Revisa los dispositivos y controladores de audio."
+        "Abre la configuración de sonido de Windows para "
+        "revisar los dispositivos de entrada y salida."
     ),
 }
 
@@ -93,12 +95,12 @@ REPAIR_ACTION_BUTTON_LABELS = {
         "Reparar IA"
     ),
     RepairAction.CONFIGURE_MICROPHONE: (
-        "Configurar micrófono"
+        "Abrir configuración de sonido"
     ),
     RepairAction.CONFIGURE_SYSTEM_AUDIO: (
-        "Configurar audio"
+        "Abrir configuración de sonido"
     ),
     RepairAction.REPAIR_AUDIO_DEVICES: (
-        "Reparar audio"
+        "Abrir configuración de sonido"
     ),
 }

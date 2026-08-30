@@ -41,8 +41,28 @@ def test_default_container_registers_onboarding_repairs() -> None:
         RepairAction.INSTALL_AI_PROVIDER
     )
 
-    assert not executor.can_execute(
+    assert executor.can_execute(
+        RepairAction.CONFIGURE_MICROPHONE
+    )
+
+    assert executor.can_execute(
+        RepairAction.CONFIGURE_SYSTEM_AUDIO
+    )
+
+    assert executor.can_execute(
         RepairAction.REPAIR_AUDIO_DEVICES
+    )
+
+    assert not executor.can_execute(
+        RepairAction.REPAIR_WORKSPACE
+    )
+
+    assert not executor.can_execute(
+        RepairAction.REPAIR_APPLICATION_INSTALLATION
+    )
+
+    assert not executor.can_execute(
+        RepairAction.REPAIR_AI_CAPABILITY
     )
 
 
@@ -130,4 +150,31 @@ def test_ai_onboarding_button_labels_are_explicit() -> None:
             RepairAction.DOWNLOAD_AI_MODEL
         ]
         == "Descargar modelo de IA"
+    )
+
+
+def test_audio_onboarding_button_labels_open_windows_settings() -> None:
+    expected_label = (
+        "Abrir configuración de sonido"
+    )
+
+    assert (
+        REPAIR_ACTION_BUTTON_LABELS[
+            RepairAction.CONFIGURE_MICROPHONE
+        ]
+        == expected_label
+    )
+
+    assert (
+        REPAIR_ACTION_BUTTON_LABELS[
+            RepairAction.CONFIGURE_SYSTEM_AUDIO
+        ]
+        == expected_label
+    )
+
+    assert (
+        REPAIR_ACTION_BUTTON_LABELS[
+            RepairAction.REPAIR_AUDIO_DEVICES
+        ]
+        == expected_label
     )

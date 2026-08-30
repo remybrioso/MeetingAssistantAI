@@ -72,6 +72,9 @@ from services.setup.repairs.ollama_model_repair import (
 from services.setup.repairs.transcription_model_repair import (
     TranscriptionModelRepair,
 )
+from services.setup.repairs.windows_audio_settings_repair import (
+    WindowsAudioSettingsRepair,
+)
 from services.setup.wizard.setup_wizard_service import (
     SetupWizardService,
 )
@@ -162,6 +165,24 @@ ollama_model_repair = (
     )
 )
 
+microphone_settings_repair = (
+    WindowsAudioSettingsRepair(
+        action=RepairAction.CONFIGURE_MICROPHONE
+    )
+)
+
+system_audio_settings_repair = (
+    WindowsAudioSettingsRepair(
+        action=RepairAction.CONFIGURE_SYSTEM_AUDIO
+    )
+)
+
+audio_devices_settings_repair = (
+    WindowsAudioSettingsRepair(
+        action=RepairAction.REPAIR_AUDIO_DEVICES
+    )
+)
+
 setup_repair_executor = SetupRepairExecutor(
     handlers={
         RepairAction.DOWNLOAD_TRANSCRIPTION_MODEL: (
@@ -172,6 +193,15 @@ setup_repair_executor = SetupRepairExecutor(
         ),
         RepairAction.DOWNLOAD_AI_MODEL: (
             ollama_model_repair
+        ),
+        RepairAction.CONFIGURE_MICROPHONE: (
+            microphone_settings_repair
+        ),
+        RepairAction.CONFIGURE_SYSTEM_AUDIO: (
+            system_audio_settings_repair
+        ),
+        RepairAction.REPAIR_AUDIO_DEVICES: (
+            audio_devices_settings_repair
         ),
     }
 )
@@ -413,6 +443,21 @@ container.register(
 container.register(
     "ollama_model_repair",
     ollama_model_repair,
+)
+
+container.register(
+    "microphone_settings_repair",
+    microphone_settings_repair,
+)
+
+container.register(
+    "system_audio_settings_repair",
+    system_audio_settings_repair,
+)
+
+container.register(
+    "audio_devices_settings_repair",
+    audio_devices_settings_repair,
 )
 
 container.register(
