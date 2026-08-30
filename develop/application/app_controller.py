@@ -60,6 +60,17 @@ class AppController:
     def retry_setup_wizard(self) -> None:
         self.setup_controller.retry()
 
+    def can_repair_setup_action(
+        self,
+        repair_action: str,
+    ) -> bool:
+        return (
+            self.setup_controller
+            .can_execute_repair(
+                repair_action
+            )
+        )
+
     def repair_setup_capability(
         self,
         capability_id: str,

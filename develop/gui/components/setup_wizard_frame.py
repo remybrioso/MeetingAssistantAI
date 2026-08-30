@@ -242,6 +242,8 @@ class SetupWizardFrame(ctk.CTkFrame):
                 description=(
                     presentation["description"]
                 ),
+                on_repair=self._request_repair,
+                can_repair=self._can_repair,
             )
 
             card.grid(
@@ -348,21 +350,7 @@ class SetupWizardFrame(ctk.CTkFrame):
             text=result.message
         )
 
-        self.retry_button.configure(
-            state="normal"
-        )
-
-        if result.can_continue:
-
-            self.continue_button.configure(
-                state="normal"
-            )
-
-        else:
-
-            self.continue_button.configure(
-                state="disabled"
-            )
+        self._restore_footer_controls()
 
     def show_failure(
         self,
@@ -382,6 +370,148 @@ class SetupWizardFrame(ctk.CTkFrame):
 
         self.continue_button.configure(
             state="disabled"
+        )
+
+    def repair_started(
+        self,
+        capability_id: str,
+        repair_action: str,
+    ) -> None:
+
+        self.retry_button.configure(
+            state="disabled"
+        )
+
+        self.continue_button.configure(
+            state="disabled"
+        )
+
+        card = self.cards.get(
+            capability_id
+        )
+
+        if card:
+            card.set_repair_running(
+                repair_action
+            )
+
+        self.global_status_label.configure(
+            text=(
+                "Preparando la capacidad seleccionada..."
+            )
+        )
+
+    def repair_completed(
+        self,
+        capability_id: str,
+        result,
+    ) -> None:
+
+        card = self.cards.get(
+            capability_id
+        )
+
+        if card:
+            card.set_repair_result(
+                result
+            )
+
+        self.global_status_label.configure(
+            text=result.message
+        )
+
+        if not result.succeeded:
+            self._restore_footer_controls()
+
+    def repair_unavailable(
+        self,
+        capability_id: str,
+        repair_action: str,
+    ) -> None:
+
+        card = self.cards.get(
+            capability_id
+        )
+
+        if card:
+            card.set_repair_unavailable(
+                repair_action
+            )
+
+        self.global_status_label.configure(
+            text=(
+                "La reparación solicitada no "
+                "está disponible."
+            )
+        )
+
+        self._restore_footer_controls()
+
+    def repair_failed(
+        self,
+        capability_id: str,
+        repair_action: str,
+        error: str,
+    ) -> None:
+
+        card = self.cards.get(
+            capability_id
+        )
+
+        if card:
+            card.set_repair_failure(
+                repair_action,
+                error,
+            )
+
+        self.global_status_label.configure(
+            text=(
+                "No fue posible completar "
+                "la reparación."
+            )
+        )
+
+        self._restore_footer_controls()
+
+    def _restore_footer_controls(self) -> None:
+
+        self.retry_button.configure(
+            state="normal"
+        )
+
+        if (
+            self.last_result is not None
+            and self.last_result.can_continue
+        ):
+            self.continue_button.configure(
+                state="normal"
+            )
+        else:
+            self.continue_button.configure(
+                state="disabled"
+            )
+
+    def _can_repair(
+        self,
+        repair_action: str,
+    ) -> bool:
+
+        return (
+            self.controller
+            .can_repair_setup_action(
+                repair_action
+            )
+        )
+
+    def _request_repair(
+        self,
+        capability_id: str,
+        repair_action: str,
+    ) -> None:
+
+        self.controller.repair_setup_capability(
+            capability_id,
+            repair_action,
         )
 
     def _retry(self) -> None:

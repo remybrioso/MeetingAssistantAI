@@ -180,6 +180,26 @@ class MainWindow(ctk.CTk):
             self.hide_setup_wizard,
         )
 
+        self.ui_events.subscribe(
+            "setup_repair_ui_started",
+            self.setup_wizard.repair_started,
+        )
+
+        self.ui_events.subscribe(
+            "setup_repair_ui_completed",
+            self.setup_wizard.repair_completed,
+        )
+
+        self.ui_events.subscribe(
+            "setup_repair_ui_unavailable",
+            self.setup_wizard.repair_unavailable,
+        )
+
+        self.ui_events.subscribe(
+            "setup_repair_ui_failed",
+            self.setup_wizard.repair_failed,
+        )
+
     def _on_setup_wizard_completed(self, result) -> None:
 
         self.controller.accept_setup_wizard_result(

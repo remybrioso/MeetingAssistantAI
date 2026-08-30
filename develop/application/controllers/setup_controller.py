@@ -86,6 +86,19 @@ class SetupController:
 
         self.start()
 
+    def can_execute_repair(
+        self,
+        repair_action: str,
+    ) -> bool:
+        """
+        Indica si existe un handler registrado para
+        una acción de reparación.
+        """
+
+        return self.repair_executor.can_execute(
+            repair_action
+        )
+
     def request_repair(
         self,
         capability_id: str,
@@ -99,7 +112,7 @@ class SetupController:
         if self._repair_running:
             return False
 
-        if not self.repair_executor.can_execute(
+        if not self.can_execute_repair(
             repair_action
         ):
 

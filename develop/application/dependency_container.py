@@ -58,6 +58,13 @@ from services.setup.capabilities.capability_runner import (
 from services.setup.default_capability_registry import (
     build_default_capability_registry,
 )
+from services.setup.repair_action import RepairAction
+from services.setup.repair_executor import (
+    SetupRepairExecutor,
+)
+from services.setup.repairs.transcription_model_repair import (
+    TranscriptionModelRepair,
+)
 from services.setup.wizard.setup_wizard_service import (
     SetupWizardService,
 )
@@ -127,6 +134,20 @@ setup_wizard_service = SetupWizardService(
     capability_registry=capability_registry,
     capability_runner=capability_runner,
     event_bus=event_bus,
+)
+
+transcription_model_repair = (
+    TranscriptionModelRepair(
+        model_name=configuration.whisper_model
+    )
+)
+
+setup_repair_executor = SetupRepairExecutor(
+    handlers={
+        RepairAction.DOWNLOAD_TRANSCRIPTION_MODEL: (
+            transcription_model_repair
+        ),
+    }
 )
 
 
@@ -298,6 +319,7 @@ setup_controller = SetupController(
     logger=logger,
     task_runner=task_runner,
     setup_wizard_service=setup_wizard_service,
+    repair_executor=setup_repair_executor,
 )
 
 
@@ -345,6 +367,16 @@ container.register(
 container.register(
     "setup_wizard_service",
     setup_wizard_service,
+)
+
+container.register(
+    "transcription_model_repair",
+    transcription_model_repair,
+)
+
+container.register(
+    "setup_repair_executor",
+    setup_repair_executor,
 )
 
 container.register(

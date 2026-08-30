@@ -142,6 +142,33 @@ def _build_controller(
     )
 
 
+def test_controller_reports_repair_support() -> None:
+    repair_executor = FakeRepairExecutor(
+        executable=True,
+        result=RepairExecutionResult(
+            action=(
+                RepairAction
+                .DOWNLOAD_TRANSCRIPTION_MODEL
+            ),
+            status=RepairExecutionStatus.SUCCESS,
+            message="Disponible.",
+        ),
+    )
+
+    (
+        controller,
+        _,
+        _,
+        _,
+    ) = _build_controller(
+        repair_executor
+    )
+
+    assert controller.can_execute_repair(
+        RepairAction.DOWNLOAD_TRANSCRIPTION_MODEL
+    )
+
+
 def test_controller_rejects_unavailable_repair() -> None:
     repair_executor = FakeRepairExecutor(
         executable=False,

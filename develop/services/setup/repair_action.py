@@ -70,3 +70,34 @@ REPAIR_ACTION_PRESENTATION = {
         "Revisa los dispositivos y controladores de audio."
     ),
 }
+
+
+REPAIR_ACTION_BUTTON_LABELS = {
+    RepairAction.REPAIR_APPLICATION_INSTALLATION: (
+        "Reparar instalación"
+    ),
+    RepairAction.REPAIR_WORKSPACE: (
+        "Reparar carpeta"
+    ),
+    RepairAction.DOWNLOAD_TRANSCRIPTION_MODEL: (
+        "Descargar modelo"
+    ),
+    RepairAction.INSTALL_AI_PROVIDER: (
+        "Preparar motor de IA"
+    ),
+    RepairAction.DOWNLOAD_AI_MODEL: (
+        "Descargar modelo de IA"
+    ),
+    RepairAction.REPAIR_AI_CAPABILITY: (
+        "Reparar IA"
+    ),
+    RepairAction.CONFIGURE_MICROPHONE: (
+        "Configurar micrófono"
+    ),
+    RepairAction.CONFIGURE_SYSTEM_AUDIO: (
+        "Configurar audio"
+    ),
+    RepairAction.REPAIR_AUDIO_DEVICES: (
+        "Reparar audio"
+    ),
+}
