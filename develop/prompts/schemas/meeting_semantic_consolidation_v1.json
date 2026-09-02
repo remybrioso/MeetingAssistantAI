@@ -4,7 +4,8 @@
     "properties": {
         "items": {
             "type": "array",
-            "maxItems": 500,
+            "minItems": 1,
+            "maxItems": 100,
             "items": {
                 "type": "object",
                 "additionalProperties": false,
@@ -21,7 +22,8 @@
                     },
                     "description": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "maxLength": 1000
                     },
                     "source_refs": {
                         "type": "array",

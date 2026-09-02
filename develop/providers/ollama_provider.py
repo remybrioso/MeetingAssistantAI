@@ -22,6 +22,7 @@ from providers.ai_provider import AIProvider
 class OllamaProvider(AIProvider):
 
     PROVIDER_NAME = "Ollama"
+    MAX_ERROR_DETAIL_LENGTH = 2000
 
     def __init__(
         self,
@@ -108,7 +109,9 @@ class OllamaProvider(AIProvider):
             timeout=REQUEST_TIMEOUT,
         )
 
-        response.raise_for_status()
+        self._raise_generate_error(
+            response
+        )
 
         payload = response.json()
 
@@ -258,6 +261,119 @@ class OllamaProvider(AIProvider):
             configured_model
             in normalized_models
         )
+
+    @classmethod
+    def _raise_generate_error(
+        cls,
+        response,
+    ) -> None:
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as ex:
+            status_code = getattr(
+                response,
+                "status_code",
+                None,
+            )
+
+            message = (
+                "Ollama rechazó la solicitud "
+                "de generación"
+            )
+
+            if status_code is not None:
+                message += (
+                    f" con HTTP {status_code}"
+                )
+
+            message += "."
+
+            detail = cls._extract_error_detail(
+                response
+            )
+
+            if detail:
+                message += (
+                    f" Detalle: {detail}"
+                )
+
+            original_response = getattr(
+                ex,
+                "response",
+                None,
+            )
+
+            if original_response is None:
+                original_response = response
+
+            raise requests.HTTPError(
+                message,
+                response=original_response,
+                request=getattr(
+                    ex,
+                    "request",
+                    None,
+                ),
+            ) from ex
+
+    @classmethod
+    def _extract_error_detail(
+        cls,
+        response,
+    ) -> str:
+        detail = ""
+
+        try:
+            payload = response.json()
+        except (
+            TypeError,
+            ValueError,
+        ):
+            payload = None
+
+        if isinstance(
+            payload,
+            dict,
+        ):
+            error_value = payload.get(
+                "error"
+            )
+
+            if isinstance(
+                error_value,
+                str,
+            ):
+                detail = (
+                    error_value.strip()
+                )
+
+        if not detail:
+            response_text = getattr(
+                response,
+                "text",
+                "",
+            )
+
+            if isinstance(
+                response_text,
+                str,
+            ):
+                detail = (
+                    response_text.strip()
+                )
+
+        if (
+            len(detail)
+            > cls.MAX_ERROR_DETAIL_LENGTH
+        ):
+            detail = (
+                detail[
+                    :cls.MAX_ERROR_DETAIL_LENGTH
+                ]
+                + "..."
+            )
+
+        return detail
 
     @staticmethod
     def _extract_model_names(
