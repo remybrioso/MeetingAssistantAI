@@ -2,7 +2,7 @@
 meeting_semantic_consolidation_parser.py
 
 Convierte la respuesta JSON de la etapa global G1 en
-MeetingSemanticConsolidation y valida cobertura exacta contra
+MeetingSemanticConsolidation y valida sus referencias contra
 MeetingKnowledge.
 """
 
@@ -20,6 +20,46 @@ from models.meeting_semantic_consolidation import (
 )
 
 
+class CrossItemSourceReferenceReuseError(ValueError):
+    """
+    Indica referencias fuente reutilizadas entre items consolidados.
+
+    La lista se normaliza para que consumidores y observabilidad no
+    dependan del orden en que G1 produjo los conflictos.
+    """
+
+    def __init__(
+        self,
+        reused_source_keys,
+    ) -> None:
+        normalized_keys = tuple(
+            sorted(
+                set(
+                    reused_source_keys
+                )
+            )
+        )
+
+        if not normalized_keys:
+            raise ValueError(
+                "reused_source_keys debe contener al menos "
+                "una referencia fuente."
+            )
+
+        self.reused_source_keys = normalized_keys
+
+        super().__init__(
+            "La consolidación semántica no puede reutilizar "
+            "items fuente entre items consolidados. "
+            "Referencias reutilizadas: "
+            + ", ".join(
+                str(key)
+                for key in self.reused_source_keys
+            )
+            + "."
+        )
+
+
 class MeetingSemanticConsolidationParser:
     """
     Parser estricto de la consolidación semántica global.
@@ -29,7 +69,10 @@ class MeetingSemanticConsolidationParser:
     - referencias existentes;
     - misma categoría semántica;
     - ninguna referencia duplicada;
-    - cobertura del 100 % de los items fuente exactamente una vez.
+    - ningún item fuente reutilizado entre items consolidados.
+
+    La cobertura completa se reconcilia después del parsing mediante
+    MeetingSemanticCoverageService.
     """
 
     ROOT_FIELDS = {
@@ -106,11 +149,6 @@ class MeetingSemanticConsolidationParser:
             meeting_knowledge=meeting_knowledge,
         )
 
-        self._validate_exact_coverage(
-            items=items,
-            meeting_knowledge=meeting_knowledge,
-        )
-
         return MeetingSemanticConsolidation(
             items=items
         )
@@ -135,6 +173,10 @@ class MeetingSemanticConsolidationParser:
         ] = []
 
         seen_source_keys: set[
+            tuple[str, int, int]
+        ] = set()
+
+        reused_source_keys: set[
             tuple[str, int, int]
         ] = set()
 
@@ -190,6 +232,9 @@ class MeetingSemanticConsolidationParser:
                     seen_source_keys=(
                         seen_source_keys
                     ),
+                    reused_source_keys=(
+                        reused_source_keys
+                    ),
                 )
             )
 
@@ -199,6 +244,11 @@ class MeetingSemanticConsolidationParser:
                     description=description,
                     source_refs=source_refs,
                 )
+            )
+
+        if reused_source_keys:
+            raise CrossItemSourceReferenceReuseError(
+                reused_source_keys
             )
 
         return parsed_items
@@ -263,6 +313,9 @@ class MeetingSemanticConsolidationParser:
         output_item_index: int,
         meeting_knowledge: MeetingKnowledge,
         seen_source_keys: set[
+            tuple[str, int, int]
+        ],
+        reused_source_keys: set[
             tuple[str, int, int]
         ],
     ) -> list[
@@ -385,16 +438,13 @@ class MeetingSemanticConsolidationParser:
             )
 
             if global_key in seen_source_keys:
-                raise ValueError(
-                    "La consolidación semántica no puede "
-                    "reutilizar un item fuente en más de "
-                    "un item consolidado. Referencia: "
-                    f"{global_key}."
+                reused_source_keys.add(
+                    global_key
                 )
-
-            seen_source_keys.add(
-                global_key
-            )
+            else:
+                seen_source_keys.add(
+                    global_key
+                )
 
             parsed_refs.append(
                 MeetingKnowledgeItemReference(
@@ -461,106 +511,6 @@ class MeetingSemanticConsolidationParser:
                 "un item fuente inexistente para "
                 f"kind={kind.value}."
             )
-
-    def _validate_exact_coverage(
-        self,
-        items: list[
-            ConsolidatedMeetingKnowledgeItem
-        ],
-        meeting_knowledge: MeetingKnowledge,
-    ) -> None:
-        expected_keys = (
-            self._build_expected_source_keys(
-                meeting_knowledge
-            )
-        )
-
-        actual_keys = {
-            (
-                item.kind.value,
-                reference.chunk_index,
-                reference.item_index,
-            )
-            for item in items
-            for reference in item.source_refs
-        }
-
-        missing_keys = (
-            expected_keys
-            - actual_keys
-        )
-
-        if missing_keys:
-            formatted = ", ".join(
-                str(
-                    key
-                )
-                for key in sorted(
-                    missing_keys
-                )
-            )
-
-            raise ValueError(
-                "La consolidación semántica omitió "
-                "items fuente obligatorios: "
-                f"{formatted}."
-            )
-
-        unexpected_keys = (
-            actual_keys
-            - expected_keys
-        )
-
-        if unexpected_keys:
-            formatted = ", ".join(
-                str(
-                    key
-                )
-                for key in sorted(
-                    unexpected_keys
-                )
-            )
-
-            raise ValueError(
-                "La consolidación semántica contiene "
-                "referencias fuente inesperadas: "
-                f"{formatted}."
-            )
-
-    def _build_expected_source_keys(
-        self,
-        meeting_knowledge: MeetingKnowledge,
-    ) -> set[
-        tuple[str, int, int]
-    ]:
-        keys: set[
-            tuple[str, int, int]
-        ] = set()
-
-        for chunk in meeting_knowledge.chunks:
-            for (
-                kind,
-                section_name,
-            ) in self.KIND_TO_SECTION.items():
-                source_items = getattr(
-                    chunk,
-                    section_name,
-                )
-
-                for item_index in range(
-                    len(
-                        source_items
-                    )
-                ):
-                    keys.add(
-                        (
-                            kind.value,
-                            chunk.chunk_index,
-                            item_index,
-                        )
-                    )
-
-        return keys
 
     @staticmethod
     def _parse_non_negative_int(

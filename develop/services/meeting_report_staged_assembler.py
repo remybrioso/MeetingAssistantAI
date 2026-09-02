@@ -754,25 +754,3 @@ class MeetingReportStagedAssembler:
                         f"{field_name} referencia un "
                         "item semántico inexistente."
                     )
-
-        expected_summary_ids = set(
-            range(
-                len(
-                    semantic_consolidation.items
-                )
-            )
-        )
-
-        actual_summary_ids = set(
-            narrative.executive_summary.source_item_ids
-        )
-
-        if (
-            actual_summary_ids
-            != expected_summary_ids
-        ):
-            raise ValueError(
-                "MeetingReportStagedAssembler requiere "
-                "que executive_summary cubra todos los "
-                "items semánticos consolidados."
-            )

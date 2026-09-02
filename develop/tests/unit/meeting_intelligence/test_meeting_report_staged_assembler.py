@@ -1006,7 +1006,7 @@ def test_assembler_rejects_narrative_unknown_source_id() -> None:
         )
 
 
-def test_assembler_requires_summary_full_coverage() -> None:
+def test_assembler_accepts_summary_with_valid_subset() -> None:
     narrative = build_narrative()
 
     narrative.executive_summary = grounded(
@@ -1020,22 +1020,23 @@ def test_assembler_requires_summary_full_coverage() -> None:
         ],
     )
 
-    with pytest.raises(
-        ValueError,
-        match="executive_summary cubra todos",
-    ):
-        build_assembler().assemble(
-            meeting_knowledge=(
-                build_meeting_knowledge()
-            ),
-            semantic_consolidation=(
-                build_semantic_consolidation()
-            ),
-            narrative=narrative,
-            provider="ollama",
-            model="qwen2.5:3b",
-            prompt_version="v1",
-        )
+    result = build_assembler().assemble(
+        meeting_knowledge=(
+            build_meeting_knowledge()
+        ),
+        semantic_consolidation=(
+            build_semantic_consolidation()
+        ),
+        narrative=narrative,
+        provider="ollama",
+        model="qwen2.5:3b",
+        prompt_version="v1",
+    )
+
+    assert (
+        result.executive_summary
+        == narrative.executive_summary.text
+    )
 
 
 @pytest.mark.parametrize(

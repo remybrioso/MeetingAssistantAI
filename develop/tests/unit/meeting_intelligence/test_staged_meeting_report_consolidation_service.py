@@ -20,6 +20,9 @@ from models.meeting_semantic_consolidation import (
     MeetingSemanticConsolidation,
 )
 from models.prompt import Prompt
+from services.meeting_semantic_consolidation_parser import (
+    CrossItemSourceReferenceReuseError,
+)
 from services.staged_meeting_report_consolidation_service import (
     StagedMeetingReportConsolidationService,
 )
@@ -223,6 +226,76 @@ class FakeSemanticParser:
             raise self.error
 
         return self.result
+
+
+class FakeSemanticCoverageService:
+    def __init__(
+        self,
+        result=None,
+        identity_result=None,
+        error=None,
+    ) -> None:
+        self.result = result
+        self.identity_result = (
+            identity_result
+            if identity_result is not None
+            else build_semantic_consolidation()
+        )
+        self.error = error
+        self.calls = 0
+        self.identity_calls = 0
+        self.received_semantic = None
+        self.received_knowledge = None
+        self.identity_received_knowledge = None
+
+    def reconcile(
+        self,
+        semantic_consolidation,
+        meeting_knowledge,
+    ):
+        self.calls += 1
+        self.received_semantic = (
+            semantic_consolidation
+        )
+        self.received_knowledge = (
+            meeting_knowledge
+        )
+
+        if self.error is not None:
+            raise self.error
+
+        return (
+            self.result
+            if self.result is not None
+            else semantic_consolidation
+        )
+
+    def build_identity_consolidation(
+        self,
+        meeting_knowledge,
+    ):
+        self.identity_calls += 1
+        self.identity_received_knowledge = (
+            meeting_knowledge
+        )
+
+        if self.error is not None:
+            raise self.error
+
+        return self.identity_result
+
+
+class FakeLogger:
+    def __init__(self) -> None:
+        self.warnings = []
+
+    def warning(
+        self,
+        message,
+    ) -> None:
+        self.warnings.append(
+            message
+        )
 
 
 class FakeNarrativeParser:
@@ -444,6 +517,9 @@ def build_service(
         "semantic_parser": (
             FakeSemanticParser()
         ),
+        "semantic_coverage_service": (
+            FakeSemanticCoverageService()
+        ),
         "narrative_prompt_formatter": (
             FakeNarrativeFormatter()
         ),
@@ -462,6 +538,7 @@ def build_service(
         "report_validator": (
             FakeReportValidator()
         ),
+        "logger": FakeLogger(),
     }
 
     dependencies.update(
@@ -482,6 +559,16 @@ def test_service_runs_complete_two_call_pipeline() -> None:
     )
     semantic_parser = (
         FakeSemanticParser()
+    )
+    semantic_coverage_result = (
+        build_semantic_consolidation()
+    )
+    semantic_coverage_service = (
+        FakeSemanticCoverageService(
+            result=(
+                semantic_coverage_result
+            )
+        )
     )
     narrative_formatter = (
         FakeNarrativeFormatter()
@@ -504,6 +591,9 @@ def test_service_runs_complete_two_call_pipeline() -> None:
             semantic_formatter
         ),
         semantic_parser=semantic_parser,
+        semantic_coverage_service=(
+            semantic_coverage_service
+        ),
         narrative_prompt_formatter=(
             narrative_formatter
         ),
@@ -570,10 +660,23 @@ def test_service_runs_complete_two_call_pipeline() -> None:
         is knowledge
     )
 
+    assert (
+        semantic_coverage_service.calls
+        == 1
+    )
+    assert (
+        semantic_coverage_service.received_semantic
+        is semantic_parser.result
+    )
+    assert (
+        semantic_coverage_service.received_knowledge
+        is knowledge
+    )
+
     assert narrative_formatter.calls == 1
     assert (
         narrative_formatter.received
-        is semantic_parser.result
+        is semantic_coverage_result
     )
 
     assert narrative_parser.calls == 1
@@ -583,7 +686,7 @@ def test_service_runs_complete_two_call_pipeline() -> None:
     )
     assert (
         narrative_parser.received_semantic
-        is semantic_parser.result
+        is semantic_coverage_result
     )
 
     assert assembler.calls == 1
@@ -597,7 +700,7 @@ def test_service_runs_complete_two_call_pipeline() -> None:
         assembler.received[
             "semantic_consolidation"
         ]
-        is semantic_parser.result
+        is semantic_coverage_result
     )
     assert (
         assembler.received[
@@ -638,6 +741,92 @@ def test_service_runs_complete_two_call_pipeline() -> None:
     assert (
         report_validator.received_report
         is result
+    )
+
+
+def test_service_uses_identity_fallback_for_cross_item_reuse() -> None:
+    provider = FakeProvider()
+    knowledge = build_meeting_knowledge()
+    identity_result = build_semantic_consolidation()
+    semantic_coverage_service = (
+        FakeSemanticCoverageService(
+            identity_result=identity_result
+        )
+    )
+    narrative_formatter = (
+        FakeNarrativeFormatter()
+    )
+    narrative_parser = (
+        FakeNarrativeParser()
+    )
+    assembler = FakeAssembler()
+    logger = FakeLogger()
+
+    service = build_service(
+        provider=provider,
+        semantic_parser=(
+            FakeSemanticParser(
+                error=(
+                    CrossItemSourceReferenceReuseError(
+                        [
+                            (
+                                "risk",
+                                3,
+                                0,
+                            )
+                        ]
+                    )
+                )
+            )
+        ),
+        semantic_coverage_service=(
+            semantic_coverage_service
+        ),
+        narrative_prompt_formatter=(
+            narrative_formatter
+        ),
+        narrative_parser=narrative_parser,
+        report_assembler=assembler,
+        logger=logger,
+    )
+
+    result = service.generate(
+        knowledge
+    )
+
+    assert result is assembler.result
+    assert len(provider.calls) == 2
+    assert semantic_coverage_service.calls == 0
+    assert (
+        semantic_coverage_service.identity_calls
+        == 1
+    )
+    assert (
+        semantic_coverage_service
+        .identity_received_knowledge
+        is knowledge
+    )
+    assert narrative_formatter.received is identity_result
+    assert (
+        narrative_parser.received_semantic
+        is identity_result
+    )
+    assert (
+        assembler.received[
+            "semantic_consolidation"
+        ]
+        is identity_result
+    )
+    assert len(logger.warnings) == 1
+    assert "G1 fue descartada" in logger.warnings[0]
+    assert (
+        "referencias fuente reutilizadas"
+        in logger.warnings[0]
+    )
+    assert "('risk', 3, 0)" in logger.warnings[0]
+    assert (
+        "consolidación de identidad determinista"
+        in logger.warnings[0]
     )
 
 
@@ -871,6 +1060,10 @@ def test_service_propagates_provider_errors(
 
 def test_service_propagates_semantic_parser_error() -> None:
     provider = FakeProvider()
+    semantic_coverage_service = (
+        FakeSemanticCoverageService()
+    )
+    logger = FakeLogger()
 
     service = build_service(
         provider=provider,
@@ -881,6 +1074,10 @@ def test_service_propagates_semantic_parser_error() -> None:
                 )
             )
         ),
+        semantic_coverage_service=(
+            semantic_coverage_service
+        ),
+        logger=logger,
     )
 
     with pytest.raises(
@@ -894,6 +1091,46 @@ def test_service_propagates_semantic_parser_error() -> None:
     assert len(
         provider.calls
     ) == 1
+    assert semantic_coverage_service.calls == 0
+    assert (
+        semantic_coverage_service.identity_calls
+        == 0
+    )
+    assert logger.warnings == []
+
+
+def test_service_propagates_semantic_coverage_error() -> None:
+    provider = FakeProvider()
+    narrative_formatter = (
+        FakeNarrativeFormatter()
+    )
+
+    service = build_service(
+        provider=provider,
+        semantic_coverage_service=(
+            FakeSemanticCoverageService(
+                error=ValueError(
+                    "semantic coverage failure"
+                )
+            )
+        ),
+        narrative_prompt_formatter=(
+            narrative_formatter
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="semantic coverage failure",
+    ):
+        service.generate(
+            build_meeting_knowledge()
+        )
+
+    assert len(
+        provider.calls
+    ) == 1
+    assert narrative_formatter.calls == 0
 
 
 def test_service_propagates_narrative_parser_error() -> None:

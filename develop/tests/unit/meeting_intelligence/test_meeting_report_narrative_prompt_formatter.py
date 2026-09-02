@@ -389,3 +389,23 @@ def test_formatter_resolves_default_contract_template() -> None:
         "Presentación Global de la Reunión"
         in result.content
     )
+    assert (
+        "únicamente los `item_id` que"
+        in result.content
+    )
+    assert (
+        "No necesita enumerar todos los"
+        in result.content
+    )
+    assert (
+        "secciones estructuradas"
+        in result.content
+    )
+    assert (
+        "cobertura global."
+        in result.content
+    )
+    assert (
+        "debe contener TODOS los `item_id`"
+        not in result.content
+    )

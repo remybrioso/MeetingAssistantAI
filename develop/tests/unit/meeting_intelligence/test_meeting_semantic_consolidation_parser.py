@@ -21,6 +21,7 @@ from models.meeting_semantic_consolidation import (
     MeetingSemanticConsolidation,
 )
 from services.meeting_semantic_consolidation_parser import (
+    CrossItemSourceReferenceReuseError,
     MeetingSemanticConsolidationParser,
 )
 
@@ -406,6 +407,23 @@ def test_parser_rejects_missing_item_for_kind() -> None:
         )
 
 
+def test_parser_rejects_wrong_kind_reference() -> None:
+    payload = valid_payload()
+    payload["items"][0][
+        "kind"
+    ] = "risk"
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "item fuente inexistente para kind=risk"
+        ),
+    ):
+        parse_payload(
+            payload
+        )
+
+
 def test_parser_rejects_duplicate_reference_within_item() -> None:
     payload = valid_payload()
     payload["items"][0][
@@ -420,10 +438,15 @@ def test_parser_rejects_duplicate_reference_within_item() -> None:
     with pytest.raises(
         ValueError,
         match="referencias duplicadas",
-    ):
+    ) as error:
         parse_payload(
             payload
         )
+
+    assert not isinstance(
+        error.value,
+        CrossItemSourceReferenceReuseError,
+    )
 
 
 def test_parser_rejects_reused_reference_across_items() -> None:
@@ -444,15 +467,114 @@ def test_parser_rejects_reused_reference_across_items() -> None:
     )
 
     with pytest.raises(
-        ValueError,
-        match="reutilizar un item fuente",
-    ):
+        CrossItemSourceReferenceReuseError,
+        match="Referencias reutilizadas",
+    ) as error:
         parse_payload(
             payload
         )
 
+    assert error.value.reused_source_keys == (
+        (
+            "decision",
+            0,
+            0,
+        ),
+    )
 
-def test_parser_rejects_omitted_source_item() -> None:
+
+def test_parser_reports_multiple_reused_keys_deterministically() -> None:
+    payload = valid_payload()
+
+    payload["items"].extend(
+        [
+            {
+                "kind": "pending",
+                "description": "Pendiente duplicado.",
+                "source_refs": [
+                    {
+                        "chunk_index": 1,
+                        "item_index": 0,
+                    },
+                ],
+            },
+            {
+                "kind": "decision",
+                "description": "Decisión duplicada.",
+                "source_refs": [
+                    {
+                        "chunk_index": 0,
+                        "item_index": 0,
+                    },
+                ],
+            },
+        ]
+    )
+
+    with pytest.raises(
+        CrossItemSourceReferenceReuseError,
+    ) as error:
+        parse_payload(
+            payload
+        )
+
+    assert error.value.reused_source_keys == (
+        (
+            "decision",
+            0,
+            0,
+        ),
+        (
+            "pending",
+            1,
+            0,
+        ),
+    )
+
+
+def test_parser_prioritizes_later_hard_invalid_reference() -> None:
+    payload = valid_payload()
+
+    payload["items"].extend(
+        [
+            {
+                "kind": "decision",
+                "description": "Decisión duplicada.",
+                "source_refs": [
+                    {
+                        "chunk_index": 0,
+                        "item_index": 0,
+                    },
+                ],
+            },
+            {
+                "kind": "risk",
+                "description": "Referencia inventada.",
+                "source_refs": [
+                    {
+                        "chunk_index": 9,
+                        "item_index": 0,
+                    },
+                ],
+            },
+        ]
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="chunk inexistente",
+    ) as error:
+        parse_payload(
+            payload
+        )
+
+    assert not isinstance(
+        error.value,
+        CrossItemSourceReferenceReuseError,
+    )
+
+
+def test_parser_accepts_omitted_source_item() -> None:
     payload = valid_payload()
     payload["items"] = [
         item
@@ -460,13 +582,14 @@ def test_parser_rejects_omitted_source_item() -> None:
         if item["kind"] != "topic"
     ]
 
-    with pytest.raises(
-        ValueError,
-        match="omitió items fuente obligatorios",
-    ):
-        parse_payload(
-            payload
-        )
+    result = parse_payload(
+        payload
+    )
+
+    assert len(result.items) == 4
+    assert not result.items_of_kind(
+        ChunkKnowledgeKind.TOPIC
+    )
 
 
 def test_parser_allows_real_same_kind_merge() -> None:

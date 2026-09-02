@@ -150,6 +150,14 @@ def test_parser_returns_grounded_narrative() -> None:
     assert len(
         result.key_points
     ) == 2
+    assert (
+        result.executive_summary.source_item_ids
+        == [
+            0,
+            1,
+            2,
+        ]
+    )
 
 
 def test_parser_accepts_grounded_objective() -> None:
@@ -389,6 +397,45 @@ def test_parser_rejects_duplicate_source_ids() -> None:
         )
 
 
+def test_parser_rejects_unknown_summary_source_id() -> None:
+    payload = valid_payload()
+    payload[
+        "executive_summary"
+    ][
+        "source_item_ids"
+    ] = [
+        99
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="item semántico inexistente",
+    ):
+        parse_payload(
+            payload
+        )
+
+
+def test_parser_rejects_duplicate_summary_source_ids() -> None:
+    payload = valid_payload()
+    payload[
+        "executive_summary"
+    ][
+        "source_item_ids"
+    ] = [
+        1,
+        1,
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="valores duplicados",
+    ):
+        parse_payload(
+            payload
+        )
+
+
 @pytest.mark.parametrize(
     "title",
     [
@@ -460,7 +507,7 @@ def test_parser_accepts_specific_title_with_grounding() -> None:
     )
 
 
-def test_parser_rejects_summary_missing_source_item() -> None:
+def test_parser_accepts_summary_with_valid_proper_subset() -> None:
     payload = valid_payload()
     payload[
         "executive_summary"
@@ -471,13 +518,42 @@ def test_parser_rejects_summary_missing_source_item() -> None:
         1,
     ]
 
-    with pytest.raises(
-        ValueError,
-        match="referenciar todos los items semánticos",
-    ):
-        parse_payload(
-            payload
-        )
+    result = parse_payload(
+        payload
+    )
+
+    assert (
+        result.executive_summary.source_item_ids
+        == [
+            0,
+            1,
+        ]
+    )
+
+
+def test_parser_accepts_summary_with_one_valid_source_id() -> None:
+    payload = valid_payload()
+    payload[
+        "executive_summary"
+    ] = {
+        "text": (
+            "Se aprobó migrar la base de datos a la nube."
+        ),
+        "source_item_ids": [
+            1,
+        ],
+    }
+
+    result = parse_payload(
+        payload
+    )
+
+    assert (
+        result.executive_summary.source_item_ids
+        == [
+            1
+        ]
+    )
 
 
 def test_parser_rejects_empty_key_points() -> None:

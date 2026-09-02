@@ -63,10 +63,16 @@ directamente el propósito redactado.
 
 ## Resumen ejecutivo
 
-`executive_summary` debe representar la reunión completa sin inventar.
+`executive_summary` debe resumir la reunión de forma fiel y amplia,
+sin inventar.
 
-Su lista `source_item_ids` debe contener TODOS los `item_id` recibidos,
-cada uno exactamente una vez.
+Su lista `source_item_ids` debe contener únicamente los `item_id` que
+respaldan realmente el texto redactado. No necesita enumerar todos los
+items semánticos recibidos.
+
+La completitud operativa se representa en las secciones estructuradas
+del reporte. No uses `source_item_ids` como una lista de control de
+cobertura global.
 
 ## Puntos clave
 

@@ -27,7 +27,6 @@ class MeetingReportNarrativeParser:
     - campos exactos;
     - referencias a item_id existentes;
     - referencias sin duplicados;
-    - cobertura total del executive_summary;
     - title específico mediante grounding léxico contra sus fuentes;
     - objective opcional.
     """
@@ -158,15 +157,6 @@ class MeetingReportNarrativeParser:
                     semantic_consolidation
                 ),
             )
-        )
-
-        self._validate_summary_coverage(
-            executive_summary=(
-                executive_summary
-            ),
-            semantic_consolidation=(
-                semantic_consolidation
-            ),
         )
 
         key_points = self._parse_key_points(
@@ -443,66 +433,6 @@ class MeetingReportNarrativeParser:
                 "El campo title no contiene grounding "
                 "temático suficiente respecto de sus "
                 "source_item_ids."
-            )
-
-    def _validate_summary_coverage(
-        self,
-        executive_summary: GroundedNarrativeText,
-        semantic_consolidation: MeetingSemanticConsolidation,
-    ) -> None:
-        expected_ids = set(
-            range(
-                len(
-                    semantic_consolidation.items
-                )
-            )
-        )
-
-        actual_ids = set(
-            executive_summary.source_item_ids
-        )
-
-        if actual_ids != expected_ids:
-            missing_ids = sorted(
-                expected_ids
-                - actual_ids
-            )
-
-            extra_ids = sorted(
-                actual_ids
-                - expected_ids
-            )
-
-            details = []
-
-            if missing_ids:
-                details.append(
-                    "faltan "
-                    + ", ".join(
-                        str(value)
-                        for value in missing_ids
-                    )
-                )
-
-            if extra_ids:
-                details.append(
-                    "sobran "
-                    + ", ".join(
-                        str(value)
-                        for value in extra_ids
-                    )
-                )
-
-            raise ValueError(
-                "El campo executive_summary debe "
-                "referenciar todos los items semánticos "
-                "exactamente una vez"
-                + (
-                    ": "
-                    + "; ".join(details)
-                    if details
-                    else "."
-                )
             )
 
     @classmethod

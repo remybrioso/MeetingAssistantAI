@@ -6,6 +6,7 @@ Orquesta la consolidación global staged de Meeting Assistant AI.
 Etapas:
 
 G1. consolidación semántica global mediante referencias;
+G1C. reconciliación determinista de cobertura fuente;
 G2. narrativa global grounded mediante item_ids;
 G3. ensamblado determinista de MeetingReport;
 G4. validación final de grounding y calidad.
@@ -26,6 +27,7 @@ from providers.ollama_provider import (
 from services.json_schema_loader import (
     JsonSchemaLoader,
 )
+from services.logger_service import LoggerService
 from services.meeting_report_narrative_parser import (
     MeetingReportNarrativeParser,
 )
@@ -35,7 +37,11 @@ from services.meeting_report_narrative_prompt_formatter import (
 from services.meeting_report_staged_assembler import (
     MeetingReportStagedAssembler,
 )
+from services.meeting_semantic_coverage_service import (
+    MeetingSemanticCoverageService,
+)
 from services.meeting_semantic_consolidation_parser import (
+    CrossItemSourceReferenceReuseError,
     MeetingSemanticConsolidationParser,
 )
 from services.meeting_semantic_consolidation_prompt_formatter import (
@@ -77,12 +83,14 @@ class StagedMeetingReportConsolidationService:
         provider=None,
         semantic_prompt_formatter=None,
         semantic_parser=None,
+        semantic_coverage_service=None,
         narrative_prompt_formatter=None,
         narrative_parser=None,
         report_assembler=None,
         schema_loader=None,
         grounding_validator=None,
         report_validator=None,
+        logger=None,
     ) -> None:
         self.provider = (
             provider
@@ -100,6 +108,12 @@ class StagedMeetingReportConsolidationService:
             semantic_parser
             if semantic_parser is not None
             else MeetingSemanticConsolidationParser()
+        )
+
+        self.semantic_coverage_service = (
+            semantic_coverage_service
+            if semantic_coverage_service is not None
+            else MeetingSemanticCoverageService()
         )
 
         self.narrative_prompt_formatter = (
@@ -136,6 +150,12 @@ class StagedMeetingReportConsolidationService:
             report_validator
             if report_validator is not None
             else MeetingReportValidator()
+        )
+
+        self.logger = (
+            logger
+            if logger is not None
+            else LoggerService()
         )
 
     def generate(
@@ -222,11 +242,38 @@ class StagedMeetingReportConsolidationService:
             schema,
         )
 
-        return self.semantic_parser.parse(
-            response=response,
-            meeting_knowledge=(
-                meeting_knowledge
+        try:
+            parsed_consolidation = self.semantic_parser.parse(
+                response=response,
+                meeting_knowledge=(
+                    meeting_knowledge
+                ),
+            )
+        except CrossItemSourceReferenceReuseError as ex:
+            self.logger.warning(
+                "La consolidación semántica G1 fue descartada; "
+                "razón: referencias fuente reutilizadas entre "
+                "items consolidados; referencias reutilizadas: "
+                + ", ".join(
+                    str(key)
+                    for key in ex.reused_source_keys
+                )
+                + "; estrategia: consolidación de identidad "
+                "determinista."
+            )
+
+            return (
+                self.semantic_coverage_service
+                .build_identity_consolidation(
+                    meeting_knowledge
+                )
+            )
+
+        return self.semantic_coverage_service.reconcile(
+            semantic_consolidation=(
+                parsed_consolidation
             ),
+            meeting_knowledge=meeting_knowledge,
         )
 
     def _generate_narrative(
