@@ -12,13 +12,26 @@ from providers.whisper.whisper_models import (
     WhisperSegment,
     WhisperWord,
 )
+from providers.whisper.whisper_segment_normalizer import (
+    WhisperSegmentNormalizer,
+)
 
 
 class WhisperProvider:
 
-    def __init__(self, config: WhisperConfiguration | None = None):
-
+    def __init__(
+        self,
+        config: WhisperConfiguration | None = None,
+        segment_normalizer: WhisperSegmentNormalizer | None = None,
+    ):
         self.config = config or WhisperConfiguration()
+
+        self.segment_normalizer = (
+            segment_normalizer
+            if segment_normalizer is not None
+            else WhisperSegmentNormalizer()
+        )
+
         self._model = None
 
     def _load_model(self):
@@ -80,12 +93,16 @@ class WhisperProvider:
                         )
                     )
 
-            result.segments.append(
-                WhisperSegment(
-                    start=segment.start,
-                    end=segment.end,
-                    text=segment.text.strip(),
-                    words=words
+            raw_segment = WhisperSegment(
+                start=segment.start,
+                end=segment.end,
+                text=segment.text.strip(),
+                words=words
+            )
+
+            result.segments.extend(
+                self.segment_normalizer.normalize(
+                    raw_segment
                 )
             )
 

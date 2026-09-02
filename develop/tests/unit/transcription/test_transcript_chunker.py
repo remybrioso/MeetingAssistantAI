@@ -53,6 +53,61 @@ def test_chunk_exposes_traceable_metadata() -> None:
     ]
 
 
+def test_chunk_uses_real_temporal_envelope_for_overlapping_segments() -> None:
+    local = build_segment(
+        10.0,
+        20.0,
+        "LOCAL",
+        "intervencion local",
+    )
+
+    remote = build_segment(
+        15.0,
+        16.0,
+        "REMOTE",
+        "respuesta remota",
+    )
+
+    chunk = TranscriptChunk(
+        index=0,
+        segments=[
+            local,
+            remote,
+        ],
+    )
+
+    assert chunk.start == 10.0
+    assert chunk.end == 20.0
+    assert chunk.duration == 10.0
+
+
+def test_chunk_uses_minimum_start_even_if_input_is_not_sorted() -> None:
+    later = build_segment(
+        20.0,
+        22.0,
+        "REMOTE",
+        "segmento posterior",
+    )
+
+    earlier = build_segment(
+        10.0,
+        12.0,
+        "LOCAL",
+        "segmento anterior",
+    )
+
+    chunk = TranscriptChunk(
+        index=0,
+        segments=[
+            later,
+            earlier,
+        ],
+    )
+
+    assert chunk.start == 10.0
+    assert chunk.end == 22.0
+
+
 def test_chunk_rejects_empty_segments() -> None:
     with pytest.raises(
         ValueError,

@@ -35,11 +35,17 @@ class TranscriptChunk:
 
     @property
     def start(self) -> float:
-        return self.segments[0].start
+        return min(
+            segment.start
+            for segment in self.segments
+        )
 
     @property
     def end(self) -> float:
-        return self.segments[-1].end
+        return max(
+            segment.end
+            for segment in self.segments
+        )
 
     @property
     def duration(self) -> float:
