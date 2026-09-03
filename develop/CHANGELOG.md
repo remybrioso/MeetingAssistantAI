@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.9.0-alpha.3
+
+### Fixed
+
+- Se mejoró la compatibilidad de las respuestas estructuradas con la versión local de Ollama utilizada por MAI.
+- Se corrigieron discontinuidades temporales de Faster-Whisper que podían invalidar reuniones largas con pistas de audio superpuestas.
+- La consolidación global preserva determinísticamente todo el conocimiento extraído de la reunión sin inventar procedencia.
+- Las referencias narrativas representan únicamente los elementos que realmente fundamentan cada texto.
+- Las reuniones importadas se guardan en la ruta canónica de Meetings dentro de Documents, incluida su redirección corporativa a OneDrive.
+- Las reuniones sin evidencia suficiente conservan audio, transcripción y métricas, y muestran un aviso comprensible sin habilitar exportación ni presentar un falso éxito.
+
+### Release Engineering
+
+- Se eliminó una colisión de nombres durante la colección global de pytest.
+- Se añadieron contratos y pruebas de regresión para integridad temporal, cobertura semántica, procedencia narrativa, almacenamiento de importaciones y resultados de evidencia insuficiente.
+- Se actualizó la documentación persistente de continuidad de ingeniería después del cierre de Corporate Acceptance.
+
+### Quality
+
+Regresión global posterior a esta actualización de metadata:
+
+- 1018 tests collected.
+- 1016 tests passed.
+- 2 tests skipped.
+- 0 failures.
+
+También se validó:
+
+- Meeting Pipeline con la reunión corporativa real de TSS;
+- runtime congelado para el enrutamiento canónico de reuniones importadas;
+- runtime congelado para la experiencia de evidencia estructural insuficiente.
+
+---
+
 ## v0.9.0-alpha.2
 
 ### Added

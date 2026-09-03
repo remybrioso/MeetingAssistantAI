@@ -5,7 +5,7 @@ Meeting Assistant AI (MAI) es una aplicación de escritorio para Windows orienta
 Versión actual:
 
 ```text
-v0.9.0-alpha.2
+v0.9.0-alpha.3
 ```
 
 ## Arquitectura actual
@@ -37,6 +37,8 @@ transcription
 artificial-intelligence
 audio
 ```
+
+El hardening de Corporate Acceptance para esta prerelease está completado.
 
 ## Requisitos de desarrollo
 
@@ -89,7 +91,8 @@ python -m pytest .\tests\unit\release -q
 Baseline de publicación:
 
 ```text
-941 passed
+1018 collected
+1016 passed
 2 skipped
 0 failed
 ```
@@ -125,7 +128,7 @@ dist/
 ├── MeetingAssistantAI/
 │   └── MeetingAssistantAI.exe
 └── installer/
-    └── MeetingAssistantAI-Setup-v0.9.0-alpha.2.exe
+    └── MeetingAssistantAI-Setup-v0.9.0-alpha.3.exe
 ```
 
 ## Instalación y first-run
@@ -141,7 +144,7 @@ docs/INSTALLATION.md
 Consulta:
 
 ```text
-docs/releases/v0.9.0-alpha.2.md
+docs/releases/v0.9.0-alpha.3.md
 ```
 
 ## Contratos de release

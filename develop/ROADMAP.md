@@ -2,7 +2,7 @@
 
 ## Versión actual
 
-v0.9.0-alpha.2
+v0.9.0-alpha.3
 
 ---
 
@@ -81,6 +81,23 @@ Resultado principal:
 - Documentación de instalación y release.
 - Baseline de regresión: 941 passed, 2 skipped.
 
+## M5.1 - Corporate Acceptance Hardening
+
+Versión objetivo: v0.9.0-alpha.3
+
+Estado: 🟡 Hardening completado; release en preparación
+
+Resultado principal:
+
+- Corporate Acceptance completado en la estación corporativa TSS.
+- Compatibilidad de salida estructurada con Ollama endurecida.
+- Integridad temporal de Faster-Whisper corregida para reuniones largas.
+- Cobertura semántica y procedencia narrativa preservadas determinísticamente.
+- Reuniones importadas dirigidas a la ruta canónica de Meetings.
+- Resultado de evidencia insuficiente tratado como condición de dominio esperada.
+- Runtime congelado validado para CAT-001 y CAT-002.
+- Baseline de regresión: 1018 collected, 1016 passed, 2 skipped, 0 failed.
+
 ## M6 - Beta Feedback & Product Hardening
 
 Estado: ⏳ Pendiente
@@ -103,5 +120,5 @@ Frentes previstos:
 
 # Próximo objetivo
 
-Publicar `v0.9.0-alpha.2` como GitHub Release y abrir el ciclo de
-feedback previo a M6.
+Preparar, validar y publicar `v0.9.0-alpha.3` como GitHub Release. Después de
+cerrar esa prerelease podrá abrirse el ciclo de feedback previo a M6.

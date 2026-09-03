@@ -24,7 +24,7 @@ def test_runtime_version_matches_version_file() -> None:
 
 
 def test_runtime_version_is_current_release() -> None:
-    assert VERSION == "0.9.0-alpha.2"
+    assert VERSION == "0.9.0-alpha.3"
 
 
 def test_runtime_milestone_is_ai_pipeline() -> None:
@@ -32,4 +32,4 @@ def test_runtime_milestone_is_ai_pipeline() -> None:
 
 
 def test_build_identifies_current_release_cycle() -> None:
-    assert BUILD == "2026-08"
+    assert BUILD == "2026-09"

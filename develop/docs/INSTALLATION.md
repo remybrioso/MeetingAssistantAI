@@ -3,7 +3,7 @@
 Esta guía corresponde a:
 
 ```text
-Meeting Assistant AI v0.9.0-alpha.2
+Meeting Assistant AI v0.9.0-alpha.3
 ```
 
 ## Plataforma soportada
@@ -18,10 +18,10 @@ El instalador no requiere permisos administrativos.
 
 ## 1. Descargar el instalador
 
-Descarga desde GitHub Releases:
+Cuando se publique esta prerelease, descarga desde GitHub Releases:
 
 ```text
-MeetingAssistantAI-Setup-v0.9.0-alpha.2.exe
+MeetingAssistantAI-Setup-v0.9.0-alpha.3.exe
 ```
 
 La release de GitHub publica también el hash SHA256 del artefacto para verificar su integridad.
@@ -40,6 +40,12 @@ El instalador puede crear:
 
 - acceso directo en el menú Inicio;
 - acceso directo opcional en el escritorio.
+
+### Actualización desde v0.9.0-alpha.2
+
+Para una actualización normal, ejecuta `MeetingAssistantAI-Setup-v0.9.0-alpha.3.exe` sobre la instalación existente. No es necesario desinstalar alpha.2.
+
+Las reuniones almacenadas en la ruta canónica de usuario permanecen fuera del directorio de instalación durante la actualización.
 
 ## 3. Primera ejecución
 
@@ -135,9 +141,21 @@ Las descargas iniciales de modelos requieren Internet.
 
 ## 5. Datos de reuniones
 
-MAI almacena reuniones y artefactos en rutas de usuario, no dentro de la carpeta binaria de instalación.
+MAI almacena las reuniones normales e importadas bajo la ruta canónica de Meetings dentro de Documents. Esta ubicación respeta la redirección de Documents configurada por Windows, incluida una ubicación corporativa respaldada por OneDrive.
 
-La desinstalación elimina la aplicación, pero preserva los datos de reuniones del usuario.
+Los datos creados bajo esa ruta canónica están fuera de la carpeta binaria de instalación.
+
+### Advertencia para sesiones importadas legacy
+
+Versiones anteriores a la corrección CAT-002 pueden haber creado sesiones importadas bajo:
+
+```text
+%LOCALAPPDATA%\Programs\Meeting Assistant AI\output
+```
+
+Alpha.3 no migra esas sesiones automáticamente.
+
+Antes de desinstalar alpha.2 o realizar una validación de instalación limpia en un perfil afectado, crea una copia de seguridad del directorio `output` COMPLETO.
 
 ## 6. Limitaciones conocidas de esta alpha
 
@@ -156,7 +174,7 @@ En PowerShell:
 
 ```powershell
 Get-FileHash `
-    .\MeetingAssistantAI-Setup-v0.9.0-alpha.2.exe `
+    .\MeetingAssistantAI-Setup-v0.9.0-alpha.3.exe `
     -Algorithm SHA256
 ```
 
@@ -172,4 +190,6 @@ Configuración de Windows > Aplicaciones > Aplicaciones instaladas
 
 y selecciona **Meeting Assistant AI**.
 
-La desinstalación no debe utilizarse para borrar reuniones o documentos creados por el usuario.
+No es necesario desinstalar alpha.2 para una actualización normal a alpha.3. La desinstalación no debe utilizarse para borrar reuniones o documentos creados por el usuario.
+
+Si el perfil contiene sesiones importadas legacy en el directorio `output` indicado anteriormente, respáldalo por completo antes de desinstalar o iniciar una validación de instalación limpia.
