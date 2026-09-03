@@ -342,6 +342,11 @@ imported_meeting_service = (
             transcript_storage_service
         ),
         meeting_pipeline=meeting_pipeline,
+        meetings_root=(
+            configuration
+            .runtime_paths
+            .meetings_root
+        ),
     )
 )
 

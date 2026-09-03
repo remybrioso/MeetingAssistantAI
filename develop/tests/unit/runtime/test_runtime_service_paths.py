@@ -128,6 +128,26 @@ def test_configuration_rejects_invalid_runtime_paths() -> None:
         )
 
 
+def test_imported_meeting_composition_uses_runtime_meetings_directory(
+) -> None:
+    from application.dependency_container import (
+        configuration,
+        imported_meeting_service,
+    )
+
+    assert (
+        imported_meeting_service.meetings_root
+        == configuration.runtime_paths.meetings_root
+    )
+
+    assert (
+        Path(
+            configuration.output_directory
+        )
+        == configuration.runtime_paths.meetings_root
+    )
+
+
 def test_logger_uses_runtime_log_directory(
     tmp_path: Path,
 ) -> None:

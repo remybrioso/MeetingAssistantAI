@@ -1,171 +1,189 @@
+import wave
 from pathlib import Path
 
 import pytest
-from requests.exceptions import ReadTimeout
 
-from exceptions.insufficient_transcript_evidence_error import (
-    InsufficientTranscriptEvidenceError,
-)
-from services.artifact_storage_service import (
-    ArtifactStorageService,
-)
+from models.transcript import Segment, Transcript
 from services.imported_meeting_service import (
     ImportedMeetingService,
 )
 from services.meeting_pipeline_service import (
     MeetingPipelineService,
 )
-from services.meeting_report_generator import (
-    MeetingReportGenerator,
-)
-from services.meeting_report_markdown_exporter import (
-    MeetingReportMarkdownExporter,
-)
-from services.transcript_service import (
-    TranscriptService,
-)
 from services.transcript_storage_service import (
     TranscriptStorageService,
 )
-from services.workspace_service import (
-    WorkspaceService,
-)
+from services.workspace_service import WorkspaceService
 
 
-def find_test_wav() -> Path | None:
-    candidates = list(
-        Path("output").glob(
-            "meeting_*/mic.wav"
+class FakeTranscriptService:
+
+    def transcribe_sources(
+        self,
+        sources,
+    ) -> Transcript:
+        return Transcript(
+            segments=[
+                Segment(
+                    start=0.0,
+                    end=0.1,
+                    speaker="IMPORTED",
+                    text=(
+                        "Se importó una reunión para validar "
+                        "su workspace canónico."
+                    ),
+                )
+            ]
         )
-    )
 
-    candidates.extend(
-        Path("output").glob(
-            "meeting_*/Audio/Reunion.wav"
+
+class FakeTranscriptAnalyzer:
+
+    def analyze(
+        self,
+        transcript,
+    ):
+        return transcript
+
+
+class FakeTranscriptValidator:
+
+    def validate(
+        self,
+        analysis,
+    ) -> tuple[bool, list[str]]:
+        return (
+            True,
+            [],
         )
+
+
+class FakeArtifactGenerator:
+
+    def __init__(self) -> None:
+        self.artifact = object()
+
+    def generate(
+        self,
+        transcript,
+    ):
+        return self.artifact
+
+
+class FakeArtifactDeliveryService:
+
+    def __init__(self) -> None:
+        self.received_report = None
+        self.received_workspace = None
+
+    def deliver(
+        self,
+        report,
+        workspace,
+    ) -> None:
+        self.received_report = report
+        self.received_workspace = workspace
+
+
+def write_minimal_wav(
+    filename: Path,
+) -> None:
+    filename.parent.mkdir(
+        parents=True,
+        exist_ok=True,
     )
 
-    valid_candidates = [
-        file
-        for file in candidates
-        if file.exists()
-        and file.stat().st_size > 0
-    ]
-
-    if not valid_candidates:
-        return None
-
-    return max(
-        valid_candidates,
-        key=lambda file: (
-            file.stat().st_mtime
-        ),
-    )
+    with wave.open(
+        str(filename),
+        "wb",
+    ) as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(8000)
+        wav_file.writeframes(
+            b"\x00\x00" * 800
+        )
 
 
 @pytest.mark.integration
-def test_imported_meeting_service_imports_wav() -> None:
-    source_file = find_test_wav()
+def test_imported_meeting_service_imports_wav_under_controlled_root(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    source_file = (
+        tmp_path
+        / "source"
+        / "meeting.wav"
+    )
+    write_minimal_wav(
+        source_file
+    )
 
-    if source_file is None:
-        pytest.skip(
-            "No existe un archivo WAV válido "
-            "para importar."
-        )
+    meetings_root = (
+        tmp_path
+        / "Canonical Meetings"
+    ).resolve()
+
+    simulated_install_directory = (
+        tmp_path
+        / "Installed Application"
+    )
+    simulated_install_directory.mkdir()
+    monkeypatch.chdir(
+        simulated_install_directory
+    )
 
     transcript_storage_service = (
         TranscriptStorageService()
     )
+    artifact_generator = FakeArtifactGenerator()
+    artifact_delivery_service = (
+        FakeArtifactDeliveryService()
+    )
 
     meeting_pipeline = MeetingPipelineService(
-        artifact_generator=(
-            MeetingReportGenerator()
+        artifact_generator=artifact_generator,
+        artifact_delivery_service=(
+            artifact_delivery_service
         ),
         transcript_storage_service=(
             transcript_storage_service
         ),
-        storage_service=(
-            ArtifactStorageService()
-        ),
-        markdown_exporter=(
-            MeetingReportMarkdownExporter()
-        ),
+        transcript_analyzer=FakeTranscriptAnalyzer(),
+        transcript_validator=FakeTranscriptValidator(),
     )
 
     service = ImportedMeetingService(
         workspace_service=WorkspaceService(),
-        transcript_service=TranscriptService(),
+        transcript_service=FakeTranscriptService(),
         transcript_storage_service=(
             transcript_storage_service
         ),
         meeting_pipeline=meeting_pipeline,
+        meetings_root=meetings_root,
     )
 
-    try:
-        session = service.import_wav(
-            source_file
-        )
-
-    except InsufficientTranscriptEvidenceError:
-        pytest.skip(
-            "El archivo WAV de integración no "
-            "contiene evidencia suficiente para "
-            "generar un MeetingReport."
-        )
-
-    except ReadTimeout:
-        pytest.skip(
-            "Ollama superó el tiempo máximo de "
-            "respuesta durante la prueba real."
-        )
-
-    except ValueError as ex:
-        if str(ex).startswith(
-            "MeetingReport inválido:"
-        ):
-            pytest.skip(
-                "El proveedor de IA devolvió un "
-                "MeetingReport que no superó la "
-                "validación semántica: "
-                f"{ex}"
-            )
-
-        raise
-
+    session = service.import_wav(
+        source_file
+    )
     workspace = session.workspace
 
-    assert workspace is not None
+    assert session.session_dir.parent == meetings_root
+    assert workspace.root_dir == session.session_dir
+    assert workspace.meeting_audio.is_file()
+    assert workspace.transcript_json.is_file()
+    assert workspace.processing_metrics_json.is_file()
 
     assert (
-        workspace.meeting_audio.exists()
+        artifact_delivery_service.received_report
+        is artifact_generator.artifact
     )
-
     assert (
-        workspace.transcript_json.exists()
+        artifact_delivery_service.received_workspace
+        is workspace
     )
 
-    assert (
-        workspace.processing_metrics_json.exists()
-    )
-
-    assert (
-        workspace.meeting_report_json.exists()
-    )
-
-    assert (
-        workspace.meeting_report_markdown.exists()
-    )
-
-    markdown = (
-        workspace.meeting_report_markdown
-        .read_text(
-            encoding="utf-8"
-        )
-    )
-
-    assert "# " in markdown
-
-    assert (
-        "## Resumen ejecutivo"
-        in markdown
-    )
+    assert not (
+        simulated_install_directory
+        / "output"
+    ).exists()

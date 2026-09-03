@@ -27,12 +27,28 @@ class ImportedMeetingService:
         transcript_service,
         transcript_storage_service,
         meeting_pipeline,
+        meetings_root: Path,
         ):
+
+        if not isinstance(
+            meetings_root,
+            Path,
+        ):
+            raise TypeError(
+                "meetings_root debe ser una instancia "
+                "de Path."
+            )
+
+        if not meetings_root.is_absolute():
+            raise ValueError(
+                "meetings_root debe ser una ruta absoluta."
+            )
 
         self.workspace_service = workspace_service
         self.transcript_service = transcript_service
         self.transcript_storage_service = transcript_storage_service
         self.meeting_pipeline = meeting_pipeline
+        self.meetings_root = meetings_root
 
         self.transcript_storage = (
             transcript_storage_service
@@ -50,6 +66,9 @@ class ImportedMeetingService:
         total_start = time.time()
 
         session = RecordingSession(
+            base_output_dir=str(
+                self.meetings_root
+            ),
             session_prefix="meeting_imported"
         )
 
