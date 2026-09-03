@@ -5,6 +5,9 @@ Generador de MeetingReport a partir de un Transcript completo
 mediante extracción staged por chunks y consolidación global staged.
 """
 
+from exceptions.insufficient_meeting_semantic_evidence_error import (
+    InsufficientMeetingSemanticEvidenceError,
+)
 from models.artifacts.meeting_report import MeetingReport
 from models.transcript import Transcript
 from services.artifact_generator import ArtifactGenerator
@@ -137,9 +140,13 @@ class MeetingReportGenerator(
         )
 
         if not meeting_knowledge.has_content:
-            raise ValueError(
-                "MeetingKnowledge no contiene conocimiento "
-                "suficiente para generar un MeetingReport."
+            raise InsufficientMeetingSemanticEvidenceError(
+                source_chunk_count=(
+                    meeting_knowledge.source_chunk_count
+                ),
+                content_chunk_count=(
+                    meeting_knowledge.content_chunk_count
+                ),
             )
 
         last_error: ValueError | None = None

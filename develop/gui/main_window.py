@@ -1,6 +1,15 @@
 import customtkinter as ctk
 
 from application.dependency_container import container
+from exceptions.insufficient_meeting_evidence_error import (
+    InsufficientMeetingEvidenceError,
+)
+from exceptions.insufficient_meeting_semantic_evidence_error import (
+    InsufficientMeetingSemanticEvidenceError,
+)
+from exceptions.insufficient_transcript_evidence_error import (
+    InsufficientTranscriptEvidenceError,
+)
 from gui.ui_event_dispatcher import UIEventDispatcher
 from gui.components.header import Header
 from gui.components.status_panel import StatusPanel
@@ -130,6 +139,87 @@ class MainWindow(ctk.CTk):
                 "processing",
                 False,
             ),
+        )
+
+        self.ui_events.subscribe(
+            "meeting_processing_insufficient_evidence",
+            self._on_meeting_processing_insufficient_evidence,
+        )
+
+        self.ui_events.subscribe(
+            "meeting_import_insufficient_evidence",
+            self._on_meeting_import_insufficient_evidence,
+        )
+
+    def _on_meeting_processing_insufficient_evidence(
+        self,
+        error: InsufficientMeetingEvidenceError,
+    ) -> None:
+        self._show_insufficient_evidence_warning(
+            error
+        )
+        self.status_panel.set_status(
+            "processing",
+            False,
+        )
+
+    def _on_meeting_import_insufficient_evidence(
+        self,
+        error: InsufficientMeetingEvidenceError,
+    ) -> None:
+        self._show_insufficient_evidence_warning(
+            error
+        )
+
+    def _show_insufficient_evidence_warning(
+        self,
+        error: InsufficientMeetingEvidenceError,
+    ) -> None:
+        self.activity.add(
+            self._insufficient_evidence_message(
+                error
+            )
+        )
+
+    @staticmethod
+    def _insufficient_evidence_message(
+        error: InsufficientMeetingEvidenceError,
+    ) -> str:
+        if not isinstance(
+            error,
+            InsufficientMeetingEvidenceError,
+        ):
+            raise TypeError(
+                "error debe ser una instancia de "
+                "InsufficientMeetingEvidenceError."
+            )
+
+        if isinstance(
+            error,
+            InsufficientTranscriptEvidenceError,
+        ):
+            return (
+                "⚠️ Audio y transcripción guardados. "
+                "No se generó una minuta porque la "
+                "transcripción no contiene suficiente "
+                "contenido utilizable."
+            )
+
+        if isinstance(
+            error,
+            InsufficientMeetingSemanticEvidenceError,
+        ):
+            return (
+                "⚠️ Audio y transcripción guardados. "
+                "No se generó una minuta porque el "
+                "contenido no contiene suficiente evidencia "
+                "de una reunión."
+            )
+
+        return (
+            "⚠️ Audio y transcripción guardados. "
+            "No se generó una minuta porque no existe "
+            "evidencia suficiente para producir un reporte útil."
         )
 
     def build_setup_wizard(self) -> None:

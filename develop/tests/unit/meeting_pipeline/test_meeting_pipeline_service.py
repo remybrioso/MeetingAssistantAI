@@ -3,6 +3,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from exceptions.insufficient_meeting_evidence_error import (
+    InsufficientMeetingEvidenceError,
+)
 from exceptions.insufficient_transcript_evidence_error import (
     InsufficientTranscriptEvidenceError,
 )
@@ -354,6 +357,11 @@ def test_pipeline_stops_when_transcript_is_invalid(
 
     message = str(
         error.value
+    )
+
+    assert isinstance(
+        error.value,
+        InsufficientMeetingEvidenceError,
     )
 
     assert (

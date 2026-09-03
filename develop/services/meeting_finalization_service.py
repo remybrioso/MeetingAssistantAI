@@ -9,6 +9,9 @@ import time
 
 import soundfile as sf
 
+from exceptions.insufficient_meeting_evidence_error import (
+    InsufficientMeetingEvidenceError,
+)
 from models.audio_source import AudioSource
 from models.processing_metrics import ProcessingMetrics
 
@@ -20,6 +23,7 @@ class MeetingFinalizationService:
         transcript_storage_service,
         workspace_service,
         meeting_pipeline,
+        logger,
         bus=None,
     ):
         """
@@ -34,6 +38,7 @@ class MeetingFinalizationService:
         self.storage_service = transcript_storage_service
         self.workspace_service = workspace_service
         self.meeting_pipeline = meeting_pipeline
+        self.logger = logger
 
         self._validate_dependencies()
 
@@ -47,6 +52,7 @@ class MeetingFinalizationService:
                 "transcript_storage_service": self.storage_service,
                 "workspace_service": self.workspace_service,
                 "meeting_pipeline": self.meeting_pipeline,
+                "logger": self.logger,
             }
 
         missing = [
@@ -153,9 +159,30 @@ class MeetingFinalizationService:
                 workspace.processing_metrics_json
             )
 
-            self.meeting_pipeline.process(
-                recording_session
-            )
+            try:
+                self.meeting_pipeline.process(
+                    recording_session
+                )
+
+            except InsufficientMeetingEvidenceError as ex:
+                self.logger.warning(
+                    "MeetingReport omitido por evidencia "
+                    "insuficiente esperada. "
+                    f"type={type(ex).__name__}; "
+                    f"detail={ex}; "
+                    "session="
+                    f"{recording_session.session_name}; "
+                    "path="
+                    f"{recording_session.session_dir}"
+                )
+
+                if self.bus:
+                    self.bus.emit(
+                        "meeting_processing_insufficient_evidence",
+                        ex,
+                    )
+
+                return transcript
 
             if self.bus:
                 self.bus.emit(
@@ -166,6 +193,15 @@ class MeetingFinalizationService:
             return transcript
 
         except Exception as ex:
+
+            self.logger.error(
+                "Error técnico durante la finalización de reunión. "
+                f"type={type(ex).__name__}; detail={ex}; "
+                "session="
+                f"{recording_session.session_name}; "
+                "path="
+                f"{recording_session.session_dir}"
+            )
 
             if self.bus:
                 self.bus.emit(

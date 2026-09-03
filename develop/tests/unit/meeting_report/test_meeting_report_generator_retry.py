@@ -1,5 +1,11 @@
 import pytest
 
+from exceptions.insufficient_meeting_evidence_error import (
+    InsufficientMeetingEvidenceError,
+)
+from exceptions.insufficient_meeting_semantic_evidence_error import (
+    InsufficientMeetingSemanticEvidenceError,
+)
 from models.artifacts.meeting_report import MeetingReport
 from models.chunk_knowledge import ChunkKnowledge
 from models.meeting_knowledge import MeetingKnowledge
@@ -560,16 +566,49 @@ def test_generator_rejects_empty_meeting_knowledge_before_consolidation() -> Non
     )
 
     with pytest.raises(
-        ValueError,
-        match=(
-            "no contiene conocimiento suficiente"
-        ),
-    ):
+        InsufficientMeetingSemanticEvidenceError,
+    ) as error:
         generator.generate(
             build_transcript()
         )
 
+    assert error.value.source_chunk_count == 2
+    assert error.value.content_chunk_count == 0
     assert consolidation_service.calls == 0
+
+
+def test_generator_does_not_reclassify_similar_consolidation_value_error() -> None:
+    old_message = (
+        "MeetingKnowledge no contiene conocimiento suficiente "
+        "para generar un MeetingReport."
+    )
+
+    generator = build_generator(
+        consolidation_results=[
+            ValueError(
+                old_message
+            ),
+            ValueError(
+                old_message
+            ),
+        ]
+    )[0]
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "MeetingReport inválido después de la "
+            "consolidación staged"
+        ),
+    ) as error:
+        generator.generate(
+            build_transcript()
+        )
+
+    assert not isinstance(
+        error.value,
+        InsufficientMeetingEvidenceError,
+    )
 
 
 def test_generator_propagates_global_infrastructure_error_without_retry() -> None:

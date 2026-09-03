@@ -109,6 +109,26 @@ class ActionPanel(ctk.CTkFrame):
             self.on_import_failed
         )
 
+        self.ui_events.subscribe(
+            "meeting_import_insufficient_evidence",
+            self.on_import_insufficient_evidence,
+        )
+
+        self.ui_events.subscribe(
+            "meeting_processing_completed",
+            self.on_processing_completed,
+        )
+
+        self.ui_events.subscribe(
+            "meeting_processing_failed",
+            self.on_processing_failed,
+        )
+
+        self.ui_events.subscribe(
+            "meeting_processing_insufficient_evidence",
+            self.on_processing_insufficient_evidence,
+        )
+
     def _set_initial_state(self):
 
         self.btn_start.configure(state="normal")
@@ -147,7 +167,25 @@ class ActionPanel(ctk.CTkFrame):
         self.btn_pause.configure(state="disabled")
         self.btn_resume.configure(state="disabled")
         self.btn_stop.configure(state="disabled")
-        self.btn_export.configure(state="normal")
+        self.btn_export.configure(state="disabled")
+
+    def on_processing_completed(self, session):
+
+        self.btn_export.configure(
+            state="normal"
+        )
+
+    def on_processing_failed(self, error):
+
+        self.btn_export.configure(
+            state="disabled"
+        )
+
+    def on_processing_insufficient_evidence(self, error):
+
+        self.btn_export.configure(
+            state="disabled"
+        )
 
     def on_import_started(self, filename):
 
@@ -180,6 +218,20 @@ class ActionPanel(ctk.CTkFrame):
 
 
     def on_import_failed(self, error):
+
+        self.btn_start.configure(
+            state="normal"
+        )
+
+        self.btn_import.configure(
+            state="normal"
+        )
+
+        self.btn_export.configure(
+            state="disabled"
+        )
+
+    def on_import_insufficient_evidence(self, error):
 
         self.btn_start.configure(
             state="normal"

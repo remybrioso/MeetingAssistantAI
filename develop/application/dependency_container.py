@@ -330,6 +330,7 @@ meeting_finalization_service = (
         ),
         workspace_service=workspace_service,
         meeting_pipeline=meeting_pipeline,
+        logger=logger,
         bus=event_bus,
     )
 )

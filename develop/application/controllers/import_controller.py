@@ -8,6 +8,10 @@ grabaciones externas de reuniones.
 from pathlib import Path
 from tkinter import filedialog
 
+from exceptions.insufficient_meeting_evidence_error import (
+    InsufficientMeetingEvidenceError,
+)
+
 
 class ImportController:
     """
@@ -118,6 +122,20 @@ class ImportController:
                 "activity",
                 "✅ Grabación importada y "
                 "procesada correctamente.",
+            )
+
+        except InsufficientMeetingEvidenceError as ex:
+
+            self.logger.warning(
+                "MeetingReport omitido durante importación por "
+                "evidencia insuficiente esperada. "
+                f"source={source_file}; "
+                f"type={type(ex).__name__}; detail={ex}"
+            )
+
+            self.bus.emit(
+                "meeting_import_insufficient_evidence",
+                ex,
             )
 
         except Exception as ex:

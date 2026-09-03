@@ -3,6 +3,9 @@ from pathlib import Path
 
 import pytest
 
+from exceptions.insufficient_meeting_semantic_evidence_error import (
+    InsufficientMeetingSemanticEvidenceError,
+)
 from models.transcript import Segment, Transcript
 from services.imported_meeting_service import (
     ImportedMeetingService,
@@ -83,6 +86,23 @@ class FakeArtifactDeliveryService:
     ) -> None:
         self.received_report = report
         self.received_workspace = workspace
+
+
+class FailingMeetingPipeline:
+
+    def __init__(
+        self,
+        error: Exception,
+    ) -> None:
+        self.error = error
+        self.received_session = None
+
+    def process(
+        self,
+        session,
+    ) -> None:
+        self.received_session = session
+        raise self.error
 
 
 def write_minimal_wav(
@@ -187,3 +207,77 @@ def test_imported_meeting_service_imports_wav_under_controlled_root(
         simulated_install_directory
         / "output"
     ).exists()
+
+
+@pytest.mark.integration
+def test_import_preserves_workspace_before_insufficient_evidence_outcome(
+    tmp_path: Path,
+) -> None:
+    source_file = (
+        tmp_path
+        / "source"
+        / "non_meeting.wav"
+    )
+    write_minimal_wav(
+        source_file
+    )
+    source_bytes = source_file.read_bytes()
+
+    meetings_root = (
+        tmp_path
+        / "Canonical Meetings"
+    ).resolve()
+
+    expected_error = (
+        InsufficientMeetingSemanticEvidenceError(
+            source_chunk_count=1,
+            content_chunk_count=0,
+        )
+    )
+    pipeline = FailingMeetingPipeline(
+        expected_error
+    )
+
+    service = ImportedMeetingService(
+        workspace_service=WorkspaceService(),
+        transcript_service=FakeTranscriptService(),
+        transcript_storage_service=(
+            TranscriptStorageService()
+        ),
+        meeting_pipeline=pipeline,
+        meetings_root=meetings_root,
+    )
+
+    with pytest.raises(
+        InsufficientMeetingSemanticEvidenceError,
+    ) as error:
+        service.import_wav(
+            source_file
+        )
+
+    assert error.value is expected_error
+    assert source_file.read_bytes() == source_bytes
+
+    session_directories = list(
+        meetings_root.glob(
+            "meeting_imported_*"
+        )
+    )
+    assert len(session_directories) == 1
+
+    session_dir = session_directories[0]
+    assert pipeline.received_session is not None
+    assert pipeline.received_session.session_dir == session_dir
+
+    workspace = pipeline.received_session.workspace
+    assert workspace.workspace_manifest.is_file()
+    assert workspace.meeting_audio.read_bytes() == source_bytes
+    assert workspace.transcript_json.is_file()
+    assert workspace.processing_metrics_json.is_file()
+
+    assert not workspace.meeting_report_json.exists()
+    assert not workspace.action_items_json.exists()
+    assert not workspace.decisions_json.exists()
+    assert not workspace.meeting_report_markdown.exists()
+    assert not workspace.meeting_minutes_docx.exists()
+    assert not workspace.meeting_pdf.exists()
