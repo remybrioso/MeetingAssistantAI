@@ -17,13 +17,21 @@ Development directory:
 Current branch:
 `task-065-corporate-acceptance-hardening`
 
+Validated HEAD:
+`3209fe666b6ce0ae9659494a6ec5a95ae994d83d`
+
 Release baseline:
 `c67e32965febfc3e5a9f2dafcb9cbd7a159bf622`
 `chore: prepare v0.9.0-alpha.2 release`
 
-Current Corporate Acceptance commits:
+Corporate Acceptance commits:
 - `7af7eba` — `fix: harden Ollama structured output contracts`
 - `d1ce1db` — `fix: harden temporal transcript integrity`
+- `0f17f27` — `docs: add Codex engineering handoff`
+- `1676a79` — `fix: harden global meeting report integrity`
+- `f970d38` — `fix: use canonical path for imported meetings`
+- `b8eeac2` — `test: avoid imported meeting module collision`
+- `3209fe6` — `fix: handle insufficient meeting evidence gracefully`
 
 Expected unrelated working-tree files:
 - modified: `Meeting Assistan AI_workflow.txt`
@@ -44,7 +52,12 @@ Windows installer:
 Known SHA256:
 `D2849EDBF498D5B3803C04E307CDF7735780D54A9DF74B12E350D425364615D6`
 
-Do not overwrite or retag alpha.2. Acceptance fixes should lead to a new release, likely `v0.9.0-alpha.3`.
+Do not overwrite or retag alpha.2.
+
+Next intended prerelease:
+`v0.9.0-alpha.3`
+
+TASK-065 production work is complete at the validated HEAD. No production change remains required before release metadata preparation.
 
 ## 4. Product architecture
 Primary production flow:
@@ -96,7 +109,31 @@ Runtime:
 - TASK-064 — private prerelease `v0.9.0-alpha.2`: closed.
 
 ## 6. TASK-065 — Corporate Acceptance
-Ongoing on a real TSS Windows workstation.
+Status: CLOSED.
+
+- TASK-065A — Ollama structured-output compatibility: CLOSED.
+- TASK-065B — temporal transcript integrity: CLOSED.
+- TASK-065C — global semantic/narrative integrity: CLOSED.
+- TASK-065D — broad regression: CLOSED.
+- TASK-065E — imported canonical runtime path: CLOSED.
+- TASK-065F — insufficient-evidence UX: CLOSED.
+
+Resolved acceptance findings:
+- CAT-001 — insufficient-evidence UX: RESOLVED.
+- CAT-002 — imported meeting path: RESOLVED.
+- CAT-003 — Ollama structured-output grammar: RESOLVED.
+- CAT-004 — temporal integrity: RESOLVED.
+- CAT-005 — semantic/narrative integrity: RESOLVED.
+
+Final regression:
+- 1018 collected
+- 1016 passed
+- 2 skipped
+- 0 failed
+
+Frozen acceptance:
+- CAT-001: PASS
+- CAT-002: PASS
 
 Corporate workstation facts:
 - Intel i7-12700K
@@ -109,28 +146,42 @@ Corporate workstation facts:
 - do not change execution policy
 
 ## 7. CAT-001 — insufficient meeting evidence UX
-Status: open, lower priority.
+Status: RESOLVED by TASK-065F.
 
-A non-meeting Spanish news/narrative recording captured and transcribed correctly but produced:
-`MeetingKnowledge no contiene conocimiento suficiente para generar un MeetingReport`
+Commit:
+`3209fe6`
+`fix: handle insufficient meeting evidence gracefully`
 
-Desired future UX should clearly say that the transcript was saved but insufficient meeting content was found.
+Expected structural and semantic insufficiency now propagate through typed domain exceptions as an expected outcome, not as a technical processing failure.
 
-Do not mix this into unrelated tasks.
+Behavior:
+- audio, transcript, workspace, and metrics remain persisted;
+- the UI explains that no report was generated because usable meeting evidence was insufficient;
+- no success event is emitted;
+- Export remains disabled because no `MeetingReport` exists;
+- the condition is logged at WARNING with technical detail, not ERROR;
+- unrelated technical failures retain their existing error path.
+
+Frozen acceptance: PASS.
 
 ## 8. CAT-002 — imported session runtime path
-Status: open.
+Status: RESOLVED by TASK-065E.
 
-`RecordingSession` defaults to `base_output_dir: str = "output"`.
+Commit:
+`f970d38`
+`fix: use canonical path for imported meetings`
 
-`ImportedMeetingService` creates an imported session without supplying the canonical Meetings directory.
+Imported and normally recorded meetings now receive the same canonical `RuntimePaths.meetings_root` from application composition. `RecordingSession` remains independent of platform/runtime path resolution.
 
-In the installed runtime this can place imported user data under the installed application tree:
-`%LOCALAPPDATA%\Programs\Meeting Assistant AI\output\...`
+The contract remains valid when Windows resolves Documents through a corporate OneDrive-backed location.
 
-This violates the runtime path contract and risks user data living in an uninstall-controlled directory.
+Frozen one-folder acceptance with an installed-style working directory: PASS.
 
-Fix separately after the higher-priority intelligence failures.
+### Legacy release-safety note
+Three imported sessions created before CAT-002 remain under:
+`%LOCALAPPDATA%\Programs\Meeting Assistant AI\output`
+
+They are not automatically migrated by current production code. The full legacy `output` tree must be backed up before uninstall or clean-install validation on that user profile. Do not claim these sessions are safe under uninstall. Migration is not part of TASK-065.
 
 ## 9. CAT-003 / TASK-065A — Ollama structured-output grammar
 Status: CLOSED.
@@ -224,182 +275,68 @@ The original audio survived:
 - `Microfono.wav` ~2118.163 s, 44.1 kHz, mono
 - `Sistema.wav` 2118 s, 44.1 kHz, stereo, PCM16
 
-This meeting remains the primary Corporate Acceptance E2E fixture until full report delivery succeeds.
+This meeting was the primary Corporate Acceptance E2E fixture and produced a validated final report with all delivery artifacts. Retain it as corporate runtime evidence.
 
 ## 12. CAT-005 — global exact-coverage fragility
-Status: ROOT CAUSE CONFIRMED.
-Fix not yet implemented.
+Status: RESOLVED by TASK-065C.
 
-After 065B, the real meeting progressed further and failed during G1 semantic consolidation:
+Commit:
+`1676a79`
+`fix: harden global meeting report integrity`
 
-`La consolidación semántica omitió items fuente obligatorios: ('risk', 3, 0).`
+The real fixture proved two distinct G1 exact-partition failures:
+- an otherwise-valid consolidation omitted `('risk', 3, 0)`;
+- another generation reused a source reference across different consolidated items, making semantic ownership ambiguous.
 
-The corrected transcript produces four chunks.
+Final correction:
+- missing G1 source references are appended deterministically as standalone items using the canonical source catalog;
+- cross-item source reuse raises a dedicated typed exception and discards the ambiguous G1 graph;
+- the fallback is a deterministic identity consolidation with one item per canonical source entry;
+- malformed, invented, wrong-kind, locally duplicated, or otherwise invalid references remain hard errors;
+- exact G1 source coverage and uniqueness are revalidated before G2;
+- G2 `source_item_ids` represent only semantic items that actually support their narrative text;
+- executive-summary references are not required to enumerate every semantic item and are never fabricated as a coverage checklist.
 
-Real MeetingKnowledge:
-Chunk 0:
-- topics=1
-- decisions=1
-- actions=0
-- risks=1
-- pending=0
-
-Chunk 1:
-- topics=0
-- decisions=1
-- actions=0
-- risks=0
-- pending=0
-
-Chunk 2:
-- topics=0
-- decisions=1
-- actions=0
-- risks=1
-- pending=0
-
-Chunk 3:
-- topics=0
-- decisions=0
-- actions=0
-- risks=1
-- pending=0
-
-Global totals:
-- topics=1
-- decisions=3
-- actions=0
-- risks=3
-- pending=0
-- TOTAL=7
-
-G1 catalog:
-- 7 entries
-- 1052 characters
-- 1057 UTF-8 bytes
-
-References by chunk:
-- chunk 0: 3
-- chunk 1: 1
-- chunk 2: 2
-- chunk 3: 1
-
-Root-cause conclusion:
-CAT-005 is not a large-catalog problem.
-
-The model omitted one source item despite receiving only seven items and roughly 1 KB of catalog data.
-
-Current G1 asks the LLM to do both semantic consolidation and exact source-reference bookkeeping. The parser then rejects the whole meeting if one expected reference is missing.
-
-There is a parallel fragility in G2: `executive_summary.source_item_ids` is also required to contain all semantic item IDs exactly once.
+The final real E2E completed G1, G2, assembly, grounding/report validation, and delivery. The chunk-3 risk survived through source provenance into the final assembled report.
 
 ## 13. TASK-065C — Deterministic Global Coverage
-Status: NEXT IMPLEMENTATION TASK.
+Status: CLOSED.
 
-Core principle:
+Permanent principle:
 
 `LLM = semantic intelligence`
+
 `Code = integrity, coverage, provenance`
 
-Do not solve CAT-005 by:
-- increasing retries;
-- weakening validation and silently accepting lost knowledge;
-- changing qwen2.5:3b just to mask the issue;
-- removing grounding;
-- relying on the model for exact bookkeeping.
+Permanent G1 contract:
+1. Let the LLM perform semantic merging and wording.
+2. Deterministically append genuinely missing source entries.
+3. On ambiguous cross-item reuse, emit a warning and use canonical identity consolidation instead of guessing.
+4. Preserve strict validation for malformed or invalid references.
+5. Require exact 100% source coverage and one owner per source before G2.
 
-### Intended G1 behavior
-The LLM still decides semantic merging and consolidated wording.
+Permanent G2 contract:
+1. Narrative references must be integer, non-negative, unique within each grounded text, and resolve to existing semantic items.
+2. Title-specific grounding remains mandatory.
+3. Executive-summary references describe actual support and may be a valid subset.
+4. Structured report sections and G1 coverage own operational completeness; narrative provenance is not global bookkeeping.
 
-Continue rejecting:
-- invalid JSON
-- wrong fields
-- invalid kinds
-- nonexistent references
-- wrong-kind references
-- duplicate references
-- reuse of one source reference across multiple consolidated items
+The successful staged path still makes exactly two provider calls: G1 and G2. Do not introduce retries as a substitute for deterministic integrity.
 
-But missing source references should be reconciled deterministically after parsing.
+## 14. Final TASK-065 acceptance evidence
+Broad regression:
+- 1018 collected
+- 1016 passed
+- 2 skipped
+- 0 failed
 
-For each expected MeetingKnowledge source item absent from the otherwise-valid G1 response:
-- preserve original kind
-- preserve/derive original source description
-- create a standalone consolidated item
-- assign original `chunk_index` and `item_index`
+Frozen acceptance:
+- CAT-001: PASS
+- CAT-002: PASS
 
-Then assert exact 100% source coverage in code.
+The real corporate meeting completed the production-faithful path from the saved corrected transcript through deterministic G1 handling, G2, staged assembly, validators, and artifact delivery.
 
-Real failure example:
-if G1 misses `('risk', 3, 0)`, append a standalone risk backed by `chunk_index=3`, `item_index=0`.
-
-No information loss. No extra LLM call.
-
-### Intended G2 behavior
-G2 continues to generate:
-- title
-- optional objective
-- executive-summary text
-- key points
-
-Continue rejecting invalid/nonexistent/duplicate IDs.
-
-For executive-summary provenance, code should own full coverage.
-
-After valid narrative parsing, final executive-summary IDs should deterministically cover:
-`list(range(len(semantic_consolidation.items)))`
-
-Keep the model's executive-summary text unchanged.
-
-Title, objective, and key-point references should remain genuinely model-grounded and keep existing validation.
-
-### Proposed scope
-Inspect current source/tests before editing and confirm the smallest clean scope.
-
-Expected production changes:
-- modify `develop/services/meeting_semantic_consolidation_parser.py`
-- add `develop/services/meeting_semantic_coverage_service.py`
-- modify `develop/services/meeting_report_narrative_parser.py`
-- add `develop/services/meeting_report_narrative_coverage_service.py`
-- modify `develop/services/staged_meeting_report_consolidation_service.py`
-
-Expected tests:
-- semantic coverage reconciliation unit tests
-- narrative coverage reconciliation unit tests
-- parser tests preserving strictness for malformed/invalid references
-- staged consolidation service tests
-- regression for seven source items with one omitted risk
-
-Do not modify 065A schemas or `OllamaProvider` unless new evidence proves it necessary.
-Do not modify 065B files as part of 065C.
-
-### Required 065C gates
-1. Inspect relevant source/tests.
-2. State exact implementation scope before edits.
-3. Implement G1 deterministic coverage.
-4. Targeted G1 tests.
-5. Implement G2 deterministic provenance.
-6. Targeted G2 tests.
-7. Staged consolidation regression.
-8. Source-level E2E using the corrected real meeting transcript.
-9. Verify all expected report artifacts.
-10. Run appropriate broader regression.
-11. Inspect staged Git diff explicitly.
-12. Commit only the 065C scope.
-
-Do not retranscribe the 35-minute audio unless a test specifically requires revalidation of 065B. Reuse the corrected `.mai/transcript.json`.
-
-## 14. Expected E2E after 065C
-Corrected transcript
-→ four chunks
-→ per-chunk knowledge
-→ deterministic G1 coverage
-→ G2 narrative
-→ deterministic executive-summary provenance
-→ MeetingReport
-→ Artifact Delivery
-
-Expected final artifacts:
+Verified final artifacts:
 - `.mai/meeting_report.json`
 - `.mai/action_items.json`
 - `.mai/decisions.json`
@@ -407,30 +344,22 @@ Expected final artifacts:
 - `Documentos/minutes.docx`
 - `Documentos/meeting.pdf`
 
-The omitted risk must remain represented.
+The CAT-005 risk originating at `('risk', 3, 0)` remained represented through semantic provenance and final report evidence.
 
-## 15. Remaining acceptance work after 065C
-1. CAT-002 — imported session canonical runtime path.
-2. CAT-001 — insufficient-meeting-evidence UX.
-3. broader regression.
-4. installed/frozen acceptance as needed.
-5. dependency recovery checks.
-6. uninstall / user-data preservation / reinstall.
-7. new Windows build and installer.
-8. new prerelease, likely `v0.9.0-alpha.3`.
+## 15. Release-preparation state
+Next intended prerelease:
+`v0.9.0-alpha.3`
+
+No production change remains required before release metadata preparation. Remaining release work is metadata/version alignment, release notes, a new one-folder build, installer validation, and publication under a new prerelease tag. Do not overwrite or retag `v0.9.0-alpha.2`.
+
+Before uninstall or clean-install validation on the current user profile, back up the complete legacy tree:
+`%LOCALAPPDATA%\Programs\Meeting Assistant AI\output`
+
+It contains three imported sessions created before CAT-002 and is not automatically migrated. Do not assume uninstall preserves it.
 
 ## 16. First Codex instruction
 Read `AGENTS.md` and `docs/CODEX_HANDOFF.md` completely, then inspect the repository and current Git state.
 
-Do not modify anything yet.
+Treat TASK-065 and CAT-001 through CAT-005 as closed unless new evidence proves a regression. The next intended work is `v0.9.0-alpha.3` release preparation; confirm its exact scope before editing release metadata.
 
-Confirm:
-1. current branch and release baseline;
-2. TASK-065A state;
-3. TASK-065B state;
-4. CAT-005 root cause;
-5. proposed TASK-065C architecture;
-6. files that must never be touched;
-7. test and commit rules.
-
-Then inspect the relevant G1/G2 implementation and tests and propose the exact minimal file scope for TASK-065C before making changes.
+Never touch or stage the two protected workflow documents. Do not stage local probes or legacy user data. Preserve the alpha.2 tag and release artifacts.

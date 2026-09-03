@@ -56,9 +56,17 @@ Release baseline:
 `c67e32965febfc3e5a9f2dafcb9cbd7a159bf622`
 `chore: prepare v0.9.0-alpha.2 release`
 
-Known Corporate Acceptance commits:
+Validated Corporate Acceptance HEAD:
+`3209fe666b6ce0ae9659494a6ec5a95ae994d83d`
+
+Corporate Acceptance commits:
 - `7af7eba` — `fix: harden Ollama structured output contracts`
 - `d1ce1db` — `fix: harden temporal transcript integrity`
+- `0f17f27` — `docs: add Codex engineering handoff`
+- `1676a79` — `fix: harden global meeting report integrity`
+- `f970d38` — `fix: use canonical path for imported meetings`
+- `b8eeac2` — `test: avoid imported meeting module collision`
+- `3209fe6` — `fix: handle insufficient meeting evidence gracefully`
 
 ## Files that must not be touched or staged
 The following are user-maintained workflow documents and are outside the current product-hardening commits:
@@ -100,21 +108,51 @@ Corporate acceptance on the real workstation is stronger evidence than a synthet
 ## Current Corporate Acceptance state
 Read `docs/CODEX_HANDOFF.md` before performing further work.
 
-In summary:
-- TASK-065A: closed and committed.
-- TASK-065B: closed and committed.
-- CAT-005: root cause confirmed; next implementation task is TASK-065C.
-- CAT-002 and CAT-001 remain open after 065C.
-- The real 35-minute corporate meeting session is an important acceptance fixture. Do not delete it.
+TASK-065 Corporate Acceptance is closed at the validated HEAD above:
+- TASK-065A — Ollama structured-output compatibility: CLOSED.
+- TASK-065B — temporal transcript integrity: CLOSED.
+- TASK-065C — global semantic/narrative integrity: CLOSED.
+- TASK-065D — broad regression: CLOSED.
+- TASK-065E — imported canonical runtime path: CLOSED.
+- TASK-065F — insufficient-evidence UX: CLOSED.
 
-## TASK-065C architectural principle
-The next task must follow:
+CAT-001 through CAT-005 are RESOLVED.
 
-LLM = semantic intelligence
-Code = integrity, coverage, provenance
+Final broad regression:
+- 1018 collected
+- 1016 passed
+- 2 skipped
+- 0 failed
 
-Do not solve CAT-005 by increasing retries, weakening validation and silently dropping source knowledge, enlarging prompts without evidence, or depending on the model to perform exact reference bookkeeping.
+Frozen acceptance:
+- CAT-001: PASS
+- CAT-002: PASS
 
-The intended correction is deterministic coverage reconciliation after semantic generation, while continuing to reject malformed, invented, duplicated, or invalid references.
+The real 35-minute corporate meeting session remains important acceptance evidence. Do not delete it.
 
-Read `docs/CODEX_HANDOFF.md` for the detailed evidence and proposed scope before modifying anything.
+## Permanent post-TASK-065 architecture
+The governing principle remains:
+
+`LLM = semantic intelligence`
+
+`Code = integrity, coverage, provenance`
+
+Permanent rules:
+1. Imported and normally recorded meetings use the same canonical `RuntimePaths.meetings_root`.
+2. Faster-Whisper word discontinuities greater than 10 seconds are normalized before downstream chunking.
+3. G1 source coverage is reconciled deterministically.
+4. Ambiguous cross-item source reuse triggers an explicit deterministic identity consolidation; code must not guess which semantic item owns the reference.
+5. G2 executive-summary references describe the semantic items that actually support the text; they are not a checklist for global semantic coverage.
+6. Expected insufficient-evidence outcomes use typed domain exceptions and are not technical failures.
+7. Export is enabled only when a `MeetingReport` exists.
+8. Ollama remains external and `qwen2.5:3b` remains the production model.
+9. PyInstaller remains one-folder.
+10. Corporate runtime evidence on the real Windows workstation remains the acceptance truth for environment-specific behavior.
+
+## Release preparation and legacy-data safety
+- The next intended prerelease is `v0.9.0-alpha.3`.
+- No production change remains required before release metadata preparation.
+- Three imported sessions created before CAT-002 remain under `%LOCALAPPDATA%\Programs\Meeting Assistant AI\output`.
+- Current production code does not automatically migrate that legacy data.
+- Back up the full legacy `output` tree before uninstall or clean-install validation on that user profile.
+- Do not claim the legacy sessions are safe under uninstall, and do not design a migration unless it is explicitly scoped.
