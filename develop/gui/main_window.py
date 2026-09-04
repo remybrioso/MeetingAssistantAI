@@ -16,6 +16,7 @@ from gui.components.status_panel import StatusPanel
 from gui.components.activity_panel import ActivityPanel
 from gui.components.action_panel import ActionPanel
 from gui.components.setup_wizard_frame import SetupWizardFrame
+from gui.layout_policy import initial_window_geometry
 from gui.theme.colors import BACKGROUND
 
 
@@ -39,7 +40,11 @@ class MainWindow(ctk.CTk):
         ctk.set_default_color_theme("blue")
 
         self.title("Meeting Assistant AI")
-        self.geometry("1300x800")
+        geometry = initial_window_geometry(
+            screen_width=self.winfo_screenwidth(),
+            screen_height=self.winfo_screenheight(),
+        )
+        self.geometry(geometry.as_tk_geometry())
         self.configure(fg_color=BACKGROUND)
 
         self.build_ui()
@@ -363,11 +368,19 @@ class MainWindow(ctk.CTk):
 
     def build_ui(self) -> None:
 
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=0)
+        self.grid_rowconfigure(2, weight=1)
+        self.grid_rowconfigure(3, weight=0)
+
         # Header
         self.header = Header(self)
 
-        self.header.pack(
-            fill="x",
+        self.header.grid(
+            row=0,
+            column=0,
+            sticky="ew",
             padx=20,
             pady=(20, 10),
         )
@@ -378,8 +391,10 @@ class MainWindow(ctk.CTk):
             self.ui_events,
         )
 
-        self.status_panel.pack(
-            fill="x",
+        self.status_panel.grid(
+            row=1,
+            column=0,
+            sticky="ew",
             padx=20,
             pady=(0, 20),
         )
@@ -387,9 +402,10 @@ class MainWindow(ctk.CTk):
         # Actividad
         self.activity = ActivityPanel(self)
 
-        self.activity.pack(
-            fill="both",
-            expand=True,
+        self.activity.grid(
+            row=2,
+            column=0,
+            sticky="nsew",
             padx=20,
             pady=(0, 20),
         )
@@ -405,8 +421,10 @@ class MainWindow(ctk.CTk):
             self.ui_events,
         )
 
-        self.action_panel.pack(
-            fill="x",
+        self.action_panel.grid(
+            row=3,
+            column=0,
+            sticky="ew",
             padx=20,
             pady=(0, 20),
         )

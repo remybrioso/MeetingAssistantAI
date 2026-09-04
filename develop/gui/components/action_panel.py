@@ -3,6 +3,10 @@ import customtkinter as ctk
 
 from gui.theme.colors import SURFACE, BORDER
 from gui.theme.fonts import SUBTITLE
+from gui.layout_policy import (
+    ACTION_LAYOUT_NORMAL_COLUMNS,
+    action_column_count,
+)
 
 
 class ActionPanel(ctk.CTkFrame):
@@ -33,60 +37,97 @@ class ActionPanel(ctk.CTkFrame):
         )
         title.pack(anchor="w", padx=20, pady=(15, 10))
 
-        buttons = ctk.CTkFrame(self, fg_color="transparent")
-        buttons.pack(fill="x", padx=20, pady=(0, 20))
+        self._buttons_frame = ctk.CTkFrame(
+            self,
+            fg_color="transparent",
+        )
+        self._buttons_frame.pack(
+            fill="x",
+            padx=20,
+            pady=(0, 20),
+        )
 
         self.btn_start = ctk.CTkButton(
-            buttons,
+            self._buttons_frame,
             text="▶ Iniciar",
-            width=150,
             command=self.controller.start_meeting
         )
-        self.btn_start.pack(side="left", padx=8)
 
         self.btn_pause = ctk.CTkButton(
-            buttons,
+            self._buttons_frame,
             text="⏸ Pausar",
-            width=150,
             command=self.controller.pause_meeting
         )
-        self.btn_pause.pack(side="left", padx=8)
 
         self.btn_resume = ctk.CTkButton(
-            buttons,
+            self._buttons_frame,
             text="▶ Reanudar",
-            width=150,
             command=self.controller.resume_meeting
         )
-        self.btn_resume.pack(side="left", padx=8)
 
         self.btn_stop = ctk.CTkButton(
-            buttons,
+            self._buttons_frame,
             text="⏹ Finalizar",
-            width=150,
             command=self.controller.stop_meeting
         )
-        self.btn_stop.pack(side="left", padx=8)
 
         self.btn_import = ctk.CTkButton(
-            buttons,
+            self._buttons_frame,
             text="📂 Importar grabación",
-            width=170,
             command=self.controller.import_recording
         )
 
-        self.btn_import.pack(
-            side="left",
-            padx=8
-        )
-
         self.btn_export = ctk.CTkButton(
-            buttons,
+            self._buttons_frame,
             text="📄 Exportar",
-            width=150,
             state="disabled"
         )
-        self.btn_export.pack(side="left", padx=8)
+
+        self._buttons = (
+            self.btn_start,
+            self.btn_pause,
+            self.btn_resume,
+            self.btn_stop,
+            self.btn_import,
+            self.btn_export,
+        )
+        self._action_columns = None
+        self._apply_action_layout(
+            ACTION_LAYOUT_NORMAL_COLUMNS
+        )
+        self._buttons_frame.bind(
+            "<Configure>",
+            self._on_buttons_configure,
+        )
+
+    def _on_buttons_configure(self, event):
+        self._apply_action_layout(
+            action_column_count(event.width)
+        )
+
+    def _apply_action_layout(self, column_count: int) -> None:
+        if self._action_columns == column_count:
+            return
+
+        for column in range(ACTION_LAYOUT_NORMAL_COLUMNS):
+            self._buttons_frame.grid_columnconfigure(
+                column,
+                weight=1 if column < column_count else 0,
+            )
+
+        vertical_padding = 4 if column_count < len(self._buttons) else 0
+
+        for index, button in enumerate(self._buttons):
+            row, column = divmod(index, column_count)
+            button.grid(
+                row=row,
+                column=column,
+                sticky="ew",
+                padx=8,
+                pady=vertical_padding,
+            )
+
+        self._action_columns = column_count
 
     def _bind_events(self):
 

@@ -36,10 +36,7 @@ class ActivityPanel(ctk.CTkFrame):
 
         title.pack(anchor="w", padx=20, pady=(15, 10))
 
-        self.log = ctk.CTkTextbox(
-            self,
-            height=350
-        )
+        self.log = ctk.CTkTextbox(self)
 
         self.log.pack(
             fill="both",
