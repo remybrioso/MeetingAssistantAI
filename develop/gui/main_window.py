@@ -15,6 +15,7 @@ from gui.components.header import Header
 from gui.components.status_panel import StatusPanel
 from gui.components.activity_panel import ActivityPanel
 from gui.components.action_panel import ActionPanel
+from gui.components.footer import Footer
 from gui.components.setup_wizard_frame import SetupWizardFrame
 from gui.layout_policy import initial_window_geometry
 from gui.theme.colors import BACKGROUND
@@ -373,6 +374,7 @@ class MainWindow(ctk.CTk):
         self.grid_rowconfigure(1, weight=0)
         self.grid_rowconfigure(2, weight=1)
         self.grid_rowconfigure(3, weight=0)
+        self.grid_rowconfigure(4, weight=0)
 
         # Header
         self.header = Header(self)
@@ -427,6 +429,16 @@ class MainWindow(ctk.CTk):
             sticky="ew",
             padx=20,
             pady=(0, 20),
+        )
+
+        self.footer = Footer(self)
+
+        self.footer.grid(
+            row=4,
+            column=0,
+            sticky="ew",
+            padx=20,
+            pady=(0, 10),
         )
 
     def update_timer(self) -> None:
