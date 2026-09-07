@@ -20,16 +20,21 @@ class MicrophoneEngine:
     realizamos la migración de arquitectura.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        level_callback=None,
+    ):
 
         self._recorder = AudioRecorder()
+        self._level_callback = level_callback
 
     def start(
         self,
         device_id: int,
         filename: str,
         samplerate: int,
-        channels: int
+        channels: int,
+        level_callback=None,
     ):
 
         Path(filename).parent.mkdir(
@@ -37,12 +42,23 @@ class MicrophoneEngine:
             exist_ok=True
         )
 
-        self._recorder.start(
+        callback = (
+            level_callback
+            if level_callback is not None
+            else self._level_callback
+        )
+
+        recorder_kwargs = dict(
             device_id=device_id,
             filename=filename,
             samplerate=samplerate,
-            channels=channels
+            channels=channels,
         )
+
+        if callback is not None:
+            recorder_kwargs["level_callback"] = callback
+
+        self._recorder.start(**recorder_kwargs)
 
     def stop(self):
 

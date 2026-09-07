@@ -209,7 +209,8 @@ setup_repair_executor = SetupRepairExecutor(
 
 # Servicios generales
 audio_capture_service = AudioCaptureService(
-    configuration
+    configuration,
+    event_bus=event_bus,
 )
 
 meeting_timer = MeetingTimer()

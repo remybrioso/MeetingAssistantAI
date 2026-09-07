@@ -4,9 +4,12 @@ audio_capture_service.py
 Servicio encargado de coordinar la captura de audio.
 """
 
+import math
+
 from engines.audio.audio_session import AudioSession
 from engines.audio.microphone_engine import MicrophoneEngine
 from engines.audio.system_audio_engine import SystemAudioEngine
+from application.event_bus import EventBus
 from models.recording_session import RecordingSession
 from services.workspace_service import WorkspaceService
 
@@ -16,14 +19,24 @@ class AudioCaptureService:
     def __init__(
         self,
         configuration,
-        workspace_service=None
+        workspace_service=None,
+        event_bus=None,
     ):
 
         self.audio_session = AudioSession()
         self.recording_session = None
+        self.event_bus = (
+            event_bus
+            if event_bus is not None
+            else EventBus()
+        )
 
-        self.microphone = MicrophoneEngine()
-        self.system_audio = SystemAudioEngine()
+        self.microphone = MicrophoneEngine(
+            level_callback=self._on_microphone_audio_level,
+        )
+        self.system_audio = SystemAudioEngine(
+            level_callback=self._on_system_audio_level,
+        )
 
         self.config = configuration
 
@@ -76,3 +89,33 @@ class AudioCaptureService:
         self.microphone.stop()
         self.system_audio.stop()
         self.audio_session.stop()
+
+    def _on_microphone_audio_level(self, level: float) -> None:
+        self._emit_audio_level(
+            "microphone_audio_level",
+            level,
+        )
+
+    def _on_system_audio_level(self, level: float) -> None:
+        self._emit_audio_level(
+            "system_audio_level",
+            level,
+        )
+
+    def _emit_audio_level(
+        self,
+        event_name: str,
+        level: float,
+    ) -> None:
+        try:
+            value = float(level)
+        except (TypeError, ValueError):
+            value = 0.0
+
+        if not math.isfinite(value):
+            value = 0.0
+
+        self.event_bus.emit(
+            event_name,
+            max(0.0, min(1.0, value)),
+        )

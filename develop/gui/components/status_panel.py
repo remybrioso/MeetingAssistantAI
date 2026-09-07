@@ -1,5 +1,8 @@
 import customtkinter as ctk
 
+from gui.components.audio_level_meter import (
+    AudioLevelMeter,
+)
 from gui.theme.colors import (
     SURFACE,
     TEXT,
@@ -27,6 +30,14 @@ class StatusPanel(ctk.CTkFrame):
 
         self.ui_events.subscribe("meeting_started", self.on_meeting_started)
         self.ui_events.subscribe("meeting_finished", self.on_meeting_finished)
+        self.ui_events.subscribe(
+            "microphone_audio_level",
+            self.on_microphone_audio_level,
+        )
+        self.ui_events.subscribe(
+            "system_audio_level",
+            self.on_system_audio_level,
+        )
 
         self.ui_events.subscribe(
             "timer_tick",
@@ -59,6 +70,40 @@ class StatusPanel(ctk.CTkFrame):
         self.document = self._create_status(content, "Documento", ERROR)
         self.processing = self._create_status(content, "Procesando", ERROR)
         self.rec_label = ctk.CTkLabel(self, text="", font=("segoe UI", 18, "bold"), text_color=ERROR)
+
+        levels = ctk.CTkFrame(
+            self,
+            fg_color="transparent",
+        )
+        levels.pack(
+            fill="x",
+            padx=20,
+            pady=(0, 10),
+        )
+        levels.grid_columnconfigure(0, weight=1)
+        levels.grid_columnconfigure(1, weight=1)
+
+        self.microphone_meter = AudioLevelMeter(
+            levels,
+            "Micrófono",
+        )
+        self.microphone_meter.grid(
+            row=0,
+            column=0,
+            sticky="ew",
+            padx=(0, 8),
+        )
+
+        self.system_audio_meter = AudioLevelMeter(
+            levels,
+            "Audio del sistema",
+        )
+        self.system_audio_meter.grid(
+            row=0,
+            column=1,
+            sticky="ew",
+            padx=(8, 0),
+        )
 
         self.rec_label.pack(anchor="e", padx=20)
 
@@ -107,9 +152,13 @@ class StatusPanel(ctk.CTkFrame):
     def on_meeting_started(self):
         self.rec_label.configure(text="🔴 REC")
 
+    def on_microphone_audio_level(self, level: float):
+        self.microphone_meter.set_level(level)
+
+    def on_system_audio_level(self, level: float):
+        self.system_audio_meter.set_level(level)
 
     def on_meeting_finished(self):
         self.rec_label.configure(text="")
-
-    
-            
+        self.microphone_meter.set_level(0.0)
+        self.system_audio_meter.set_level(0.0)
