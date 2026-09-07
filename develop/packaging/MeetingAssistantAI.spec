@@ -19,7 +19,9 @@ PROJECT_ROOT = (
 )
 
 PRODUCTIVE_PROMPT_CONTRACTS = (
-    "chunk_classification_v1",
+    "chunk_classification_v2",
+    "chunk_classification_repair_v1",
+    "chunk_ignored_segment_audit_v1",
     "chunk_action_metadata_v1",
     "meeting_semantic_consolidation_v1",
     "meeting_report_narrative_v1",

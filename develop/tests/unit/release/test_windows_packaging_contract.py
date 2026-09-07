@@ -1,3 +1,4 @@
+import ast
 from pathlib import Path
 
 
@@ -25,11 +26,29 @@ BUILD_REQUIREMENTS = (
 )
 
 PRODUCTIVE_PROMPTS = (
-    "chunk_classification_v1",
+    "chunk_classification_v2",
+    "chunk_classification_repair_v1",
+    "chunk_ignored_segment_audit_v1",
     "chunk_action_metadata_v1",
     "meeting_semantic_consolidation_v1",
     "meeting_report_narrative_v1",
 )
+
+
+def productive_prompt_contracts_from_spec(spec: str) -> tuple[str, ...]:
+    definitions = [
+        node.value
+        for node in ast.parse(spec).body
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name)
+            and target.id == "PRODUCTIVE_PROMPT_CONTRACTS"
+            for target in node.targets
+        )
+    ]
+    assert len(definitions) == 1
+    assert isinstance(definitions[0], ast.Tuple)
+    return ast.literal_eval(definitions[0])
 
 
 def test_packaging_contract_files_exist() -> None:
@@ -73,6 +92,8 @@ def test_spec_bundles_productive_prompt_templates() -> None:
         encoding="utf-8"
     )
 
+    assert productive_prompt_contracts_from_spec(spec) == PRODUCTIVE_PROMPTS
+
     for contract in PRODUCTIVE_PROMPTS:
         assert (
             f'"{contract}"'
@@ -82,6 +103,16 @@ def test_spec_bundles_productive_prompt_templates() -> None:
     assert (
         'f"{prompt_contract}.md"'
         in spec
+    )
+
+
+def test_spec_excludes_retired_classification_from_productive_prompts() -> None:
+    spec = SPEC_FILE.read_text(
+        encoding="utf-8"
+    )
+
+    assert "chunk_classification_v1" not in productive_prompt_contracts_from_spec(
+        spec
     )
 
 

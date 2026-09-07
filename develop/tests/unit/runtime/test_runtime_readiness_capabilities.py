@@ -26,8 +26,18 @@ from services.setup.wizard.setup_wizard_policy import (
 )
 
 
+REQUIRED_SCHEMA_CONTRACTS = (
+    "chunk_classification_v2",
+    "chunk_ignored_segment_audit_v1",
+    "chunk_action_metadata_v1",
+    "meeting_semantic_consolidation_v1",
+    "meeting_report_narrative_v1",
+)
+
 PRODUCTIVE_PROMPTS = {
-    "chunk_classification_v1": "{{SEGMENTS}}",
+    "chunk_classification_v2": "{{SEGMENTS}}",
+    "chunk_classification_repair_v1": "{{REPAIR_CONTEXT}}",
+    "chunk_ignored_segment_audit_v1": "{{CANDIDATE_SEGMENTS}}",
     "chunk_action_metadata_v1": "{{ACTIONS}}",
     "meeting_semantic_consolidation_v1": "{{SOURCE_CATALOG}}",
     "meeting_report_narrative_v1": "{{CONSOLIDATED_ITEMS}}",
@@ -122,15 +132,37 @@ def test_runtime_resources_task_checks_productive_schemas_and_prompts(
 
     assert tuple(
         loader.loaded_contracts
-    ) == tuple(
-        PRODUCTIVE_PROMPTS
-    )
+    ) == REQUIRED_SCHEMA_CONTRACTS
 
     assert (
         result.details[
             "validated_prompt_contracts"
         ]
         == list(PRODUCTIVE_PROMPTS)
+    )
+
+    assert result.details["validated_schema_contracts"] == list(
+        REQUIRED_SCHEMA_CONTRACTS
+    )
+    assert result.details["required_schema_count"] == 5
+    assert result.details["required_prompt_count"] == 6
+
+
+def test_runtime_resources_exclude_retired_classification_contract() -> None:
+    assert (
+        "chunk_classification_v1"
+        not in RuntimeResourcesTask.REQUIRED_SCHEMA_CONTRACTS
+    )
+    assert "chunk_classification_v1" not in {
+        contract
+        for contract, _ in RuntimeResourcesTask.REQUIRED_PROMPT_CONTRACTS
+    }
+
+
+def test_runtime_resources_do_not_require_a_dedicated_repair_schema() -> None:
+    assert (
+        "chunk_classification_repair_v1"
+        not in RuntimeResourcesTask.REQUIRED_SCHEMA_CONTRACTS
     )
 
 
@@ -162,7 +194,7 @@ def test_runtime_resources_task_fails_when_prompt_is_missing(
         runtime_paths=build_runtime_paths(
             tmp_path,
             missing_prompt=(
-                "chunk_classification_v1"
+                "chunk_classification_v2"
             ),
         ),
         schema_loader=FakeSchemaLoader(),
@@ -170,7 +202,7 @@ def test_runtime_resources_task_fails_when_prompt_is_missing(
 
     assert result.status == TaskStatus.FAILED
     assert (
-        "chunk_classification_v1.md"
+        "chunk_classification_v2.md"
         in result.error
     )
 
