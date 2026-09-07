@@ -37,10 +37,23 @@ class EmptyKnowledgeProvider:
 
     def __init__(
         self,
-        response: str = '{"items": []}',
+        response: str | None = None,
+        responses: list[str] | None = None,
     ) -> None:
         self.calls = []
-        self.response = response
+        if response is not None and responses is not None:
+            raise ValueError(
+                "Use response o responses, no ambos."
+            )
+        self.responses = list(
+            responses
+            if responses is not None
+            else [
+                response
+                if response is not None
+                else '{"items": [], "ignored_segment_ids": []}'
+            ]
+        )
 
     def generate(
         self,
@@ -54,7 +67,12 @@ class EmptyKnowledgeProvider:
             )
         )
 
-        return self.response
+        if not self.responses:
+            raise AssertionError(
+                "El proveedor recibió más llamadas que respuestas configuradas."
+            )
+
+        return self.responses.pop(0)
 
 
 class CapturingMeetingKnowledgeAssembler(
@@ -162,7 +180,12 @@ def test_structurally_valid_non_meeting_stops_before_report_delivery(
         workspace.transcript_json,
     )
 
-    provider = EmptyKnowledgeProvider()
+    provider = EmptyKnowledgeProvider(
+        responses=[
+            '{"items": [], "ignored_segment_ids": [0]}',
+            '{"items": [], "confirmed_ignored_segment_ids": [0]}',
+        ]
+    )
     knowledge_assembler = (
         CapturingMeetingKnowledgeAssembler()
     )
@@ -203,7 +226,7 @@ def test_structurally_valid_non_meeting_stops_before_report_delivery(
             session
         )
 
-    assert len(provider.calls) == 1
+    assert len(provider.calls) == 2
     assert knowledge_assembler.result is not None
     assert (
         knowledge_assembler

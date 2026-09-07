@@ -9,6 +9,8 @@ from models.chunk_classification import (
 from models.transcript import Segment
 from models.transcript_chunk import TranscriptChunk
 from services.chunk_classification_parser import (
+    ChunkClassificationCoverageError,
+    ChunkClassificationParseResult,
     ChunkClassificationParser,
 )
 
@@ -56,6 +58,7 @@ def build_response() -> str:
                     ],
                 },
             ],
+            "ignored_segment_ids": [],
         },
         ensure_ascii=False,
     )
@@ -88,9 +91,28 @@ def test_parser_builds_system_owned_classification() -> None:
     ]
 
 
-def test_parser_accepts_empty_items() -> None:
+def test_parser_metadata_api_preserves_ignored_ids_without_polluting_domain() -> None:
+    result = ChunkClassificationParser().parse_with_metadata(
+        response=json.dumps({
+            "items": [{
+                "kind": "decision",
+                "description": "Se aprobó migrar el servicio.",
+                "segment_ids": [0],
+            }],
+            "ignored_segment_ids": [1],
+        }),
+        chunk=build_chunk(),
+    )
+    assert isinstance(result, ChunkClassificationParseResult)
+    assert result.ignored_segment_ids == (1,)
+    assert not hasattr(result.classification, "ignored_segment_ids")
+
+
+def test_parser_accepts_fully_ignored_segments() -> None:
     result = ChunkClassificationParser().parse(
-        response='{"items":[]}',
+        response=(
+            '{"items":[],"ignored_segment_ids":[0,1]}'
+        ),
         chunk=build_chunk(),
     )
 
@@ -139,7 +161,115 @@ def test_parser_rejects_missing_root_items() -> None:
         match="campos requeridos",
     ):
         ChunkClassificationParser().parse(
-            response="{}",
+            response=(
+                '{"ignored_segment_ids":[0,1]}'
+            ),
+            chunk=build_chunk(),
+        )
+
+
+def test_parser_rejects_missing_root_ignored_segment_ids() -> None:
+    with pytest.raises(
+        ValueError,
+        match="campos requeridos",
+    ):
+        ChunkClassificationParser().parse(
+            response='{"items":[]}',
+            chunk=build_chunk(),
+        )
+
+
+def test_parser_accepts_semantic_and_ignored_segment_coverage() -> None:
+    data = json.loads(
+        build_response()
+    )
+    data["items"] = data["items"][:1]
+    data["ignored_segment_ids"] = [
+        1,
+    ]
+
+    result = ChunkClassificationParser().parse(
+        response=json.dumps(data),
+        chunk=build_chunk(),
+    )
+
+    assert len(result.items) == 1
+    assert result.items[0].segment_ids == [
+        0,
+    ]
+
+
+@pytest.mark.parametrize("item_count", [0, 1])
+def test_parser_rejects_missing_segment_coverage(item_count: int) -> None:
+    data = json.loads(
+        build_response()
+    )
+    data["items"] = data["items"][:item_count]
+
+    with pytest.raises(
+        ChunkClassificationCoverageError,
+        match="cobertura completa",
+    ):
+        ChunkClassificationParser().parse(
+            response=json.dumps(data),
+            chunk=build_chunk(),
+        )
+
+
+def test_parser_rejects_referenced_and_ignored_overlap() -> None:
+    data = json.loads(
+        build_response()
+    )
+    data["ignored_segment_ids"] = [
+        1,
+    ]
+
+    with pytest.raises(
+        ChunkClassificationCoverageError,
+        match="no pueden solaparse",
+    ):
+        ChunkClassificationParser().parse(
+            response=json.dumps(data),
+            chunk=build_chunk(),
+        )
+
+
+def test_parser_rejects_duplicate_ignored_segment_ids() -> None:
+    data = json.loads(
+        build_response()
+    )
+    data["items"] = data["items"][:1]
+    data["ignored_segment_ids"] = [
+        1,
+        1,
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="valores duplicados",
+    ):
+        ChunkClassificationParser().parse(
+            response=json.dumps(data),
+            chunk=build_chunk(),
+        )
+
+
+@pytest.mark.parametrize("segment_id", [-1, 2])
+def test_parser_rejects_out_of_range_ignored_segment_id(segment_id: int) -> None:
+    data = json.loads(
+        build_response()
+    )
+    data["items"] = data["items"][:1]
+    data["ignored_segment_ids"] = [
+        segment_id,
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="segmento inexistente",
+    ):
+        ChunkClassificationParser().parse(
+            response=json.dumps(data),
             chunk=build_chunk(),
         )
 
@@ -298,7 +428,9 @@ def test_parser_rejects_non_chunk() -> None:
         match="TranscriptChunk",
     ):
         ChunkClassificationParser().parse(
-            response='{"items":[]}',
+            response=(
+                '{"items":[],"ignored_segment_ids":[]}'
+            ),
             chunk=object(),
         )
 
@@ -312,3 +444,23 @@ def test_parser_rejects_invalid_json() -> None:
             response="{invalid}",
             chunk=build_chunk(),
         )
+
+
+@pytest.mark.parametrize("ignored_ids", [None, "0", [True], [0.0], ["0"]])
+def test_parser_rejects_malformed_ignored_ids(ignored_ids) -> None:
+    with pytest.raises(TypeError, match="ignored_segment_ids"):
+        ChunkClassificationParser().parse(
+            response=json.dumps({"items": [], "ignored_segment_ids": ignored_ids}),
+            chunk=build_chunk(),
+        )
+
+
+def test_parser_accepts_shared_and_joint_segment_evidence() -> None:
+    data = json.loads(build_response())
+    data["items"][0]["segment_ids"] = [0, 1]
+    result = ChunkClassificationParser().parse(
+        response=json.dumps(data), chunk=build_chunk(),
+    )
+    assert result.items[0].segment_ids == [0, 1]
+    assert result.items[1].segment_ids == [1]
+    assert not hasattr(result, "ignored_segment_ids")

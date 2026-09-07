@@ -70,9 +70,10 @@ def _build_e2e_transcript() -> Transcript:
             end=40.0,
             speaker="LOCAL",
             text=(
-                "También revisamos la arquitectura actual, la "
-                "capacidad disponible de los servidores y las "
-                "dependencias técnicas existentes."
+                "Como tema independiente de la reunión, el "
+                "equipo revisó el presupuesto anual de "
+                "infraestructura y las licencias técnicas "
+                "previstas."
             ),
         ),
     ]
@@ -336,6 +337,18 @@ def test_meeting_pipeline_generates_complete_artifact_delivery(
         report.decisions
     )
 
+    assert (
+        report.risks
+    )
+
+    assert (
+        report.pending_items
+    )
+
+    assert (
+        report.topics
+    )
+
     assert all(
         item.evidence
         for item in report.action_items
@@ -344,4 +357,19 @@ def test_meeting_pipeline_generates_complete_artifact_delivery(
     assert all(
         item.evidence
         for item in report.decisions
+    )
+
+    assert all(
+        item.evidence
+        for item in report.risks
+    )
+
+    assert all(
+        item.evidence
+        for item in report.pending_items
+    )
+
+    assert all(
+        item.evidence
+        for item in report.topics
     )

@@ -40,7 +40,7 @@ def create_template(
 ) -> Path:
     template_file = (
         tmp_path
-        / "chunk_classification_v1.md"
+        / "chunk_classification_v2.md"
     )
     template_file.write_text(
         content,
@@ -68,9 +68,29 @@ def test_formatter_returns_versioned_prompt(
     )
     assert (
         result.version
-        == "chunk_classification_v1"
+        == "chunk_classification_v2"
     )
     assert "{{SEGMENTS}}" not in result.content
+
+
+def test_formatter_defaults_to_v2_template() -> None:
+    formatter = ChunkClassificationPromptFormatter()
+
+    assert (
+        formatter.template_file.name
+        == "chunk_classification_v2.md"
+    )
+
+    result = formatter.format(
+        build_chunk()
+    )
+
+    assert "TODOS los `segment_id`" in result.content
+    assert "ignored_segment_ids" in result.content
+    assert "duda entre `topic`" in result.content
+    assert "IDs locales de base cero" in result.content
+    assert "valores literales de `segment_id` suministrados" in result.content
+    assert "5 no existe y nunca debe aparecer" in result.content
 
 
 def test_formatter_serializes_compact_local_segment_ids(

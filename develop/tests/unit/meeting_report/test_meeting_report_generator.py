@@ -456,7 +456,7 @@ def test_generator_uses_staged_contracts_by_default() -> None:
         generator
         .chunk_knowledge_service
         .CLASSIFICATION_CONTRACT
-        == "chunk_classification_v1"
+        == "chunk_classification_v2"
     )
 
     assert (

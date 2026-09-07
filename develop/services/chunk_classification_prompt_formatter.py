@@ -16,7 +16,7 @@ from models.transcript_chunk import TranscriptChunk
 
 class ChunkClassificationPromptFormatter:
 
-    DEFAULT_CONTRACT = "chunk_classification_v1"
+    DEFAULT_CONTRACT = "chunk_classification_v2"
     CONTRACTS_DIRECTORY = (
         RuntimePaths.resolve()
         .prompts_directory

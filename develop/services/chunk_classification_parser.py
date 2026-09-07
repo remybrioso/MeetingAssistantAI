@@ -6,6 +6,7 @@ en ChunkClassification.
 """
 
 import json
+from dataclasses import dataclass
 from json import JSONDecodeError
 
 from models.chunk_classification import (
@@ -14,6 +15,18 @@ from models.chunk_classification import (
     ClassifiedKnowledgeItem,
 )
 from models.transcript_chunk import TranscriptChunk
+
+
+class ChunkClassificationCoverageError(ValueError):
+    """La clasificación válida estructuralmente omite o solapa segmentos."""
+
+
+@dataclass(frozen=True, slots=True)
+class ChunkClassificationParseResult:
+    """Resultado de extracción con metadatos fuera del dominio semántico."""
+
+    classification: ChunkClassification
+    ignored_segment_ids: tuple[int, ...]
 
 
 class ChunkClassificationParser:
@@ -26,6 +39,7 @@ class ChunkClassificationParser:
 
     ROOT_FIELDS = {
         "items",
+        "ignored_segment_ids",
     }
 
     ITEM_FIELDS = {
@@ -39,6 +53,16 @@ class ChunkClassificationParser:
         response: str,
         chunk: TranscriptChunk,
     ) -> ChunkClassification:
+        return self.parse_with_metadata(
+            response=response,
+            chunk=chunk,
+        ).classification
+
+    def parse_with_metadata(
+        self,
+        response: str,
+        chunk: TranscriptChunk,
+    ) -> ChunkClassificationParseResult:
         if not isinstance(
             chunk,
             TranscriptChunk,
@@ -68,11 +92,29 @@ class ChunkClassificationParser:
             chunk=chunk,
         )
 
-        return ChunkClassification(
-            chunk_index=chunk.index,
-            start=chunk.start,
-            end=chunk.end,
+        ignored_segment_ids = (
+            self._parse_ignored_segment_ids(
+                values=data["ignored_segment_ids"],
+                chunk=chunk,
+            )
+        )
+
+        self._validate_segment_coverage(
             items=items,
+            ignored_segment_ids=(
+                ignored_segment_ids
+            ),
+            chunk=chunk,
+        )
+
+        return ChunkClassificationParseResult(
+            classification=ChunkClassification(
+                chunk_index=chunk.index,
+                start=chunk.start,
+                end=chunk.end,
+                items=items,
+            ),
+            ignored_segment_ids=tuple(ignored_segment_ids),
         )
 
     def _parse_items(
@@ -132,6 +174,132 @@ class ChunkClassificationParser:
             )
 
         return parsed_items
+
+    @staticmethod
+    def _parse_ignored_segment_ids(
+        values,
+        chunk: TranscriptChunk,
+    ) -> list[int]:
+        if not isinstance(
+            values,
+            list,
+        ):
+            raise TypeError(
+                "El campo ignored_segment_ids debe ser una lista."
+            )
+
+        parsed_ids: list[int] = []
+        seen_ids: set[int] = set()
+        maximum_id = len(
+            chunk.segments
+        ) - 1
+
+        for index, segment_id in enumerate(
+            values,
+            start=1,
+        ):
+            if (
+                not isinstance(
+                    segment_id,
+                    int,
+                )
+                or isinstance(
+                    segment_id,
+                    bool,
+                )
+            ):
+                raise TypeError(
+                    "El campo ignored_segment_ids elemento "
+                    f"#{index} debe ser entero."
+                )
+
+            if (
+                segment_id < 0
+                or segment_id > maximum_id
+            ):
+                raise ValueError(
+                    "El campo ignored_segment_ids elemento "
+                    f"#{index} referencia un segmento "
+                    "inexistente del chunk."
+                )
+
+            if segment_id in seen_ids:
+                raise ValueError(
+                    "El campo ignored_segment_ids no puede "
+                    "contener valores duplicados."
+                )
+
+            seen_ids.add(
+                segment_id
+            )
+            parsed_ids.append(
+                segment_id
+            )
+
+        return parsed_ids
+
+    @staticmethod
+    def _validate_segment_coverage(
+        items: list[ClassifiedKnowledgeItem],
+        ignored_segment_ids: list[int],
+        chunk: TranscriptChunk,
+    ) -> None:
+        expected_ids = set(
+            range(
+                len(
+                    chunk.segments
+                )
+            )
+        )
+
+        referenced_ids = {
+            segment_id
+            for item in items
+            for segment_id in item.segment_ids
+        }
+
+        ignored_ids = set(
+            ignored_segment_ids
+        )
+
+        overlapping_ids = (
+            referenced_ids
+            & ignored_ids
+        )
+
+        if overlapping_ids:
+            raise ChunkClassificationCoverageError(
+                "Los segment_ids referenciados e "
+                "ignored_segment_ids no pueden solaparse. "
+                "IDs: "
+                + ", ".join(
+                    str(segment_id)
+                    for segment_id in sorted(
+                        overlapping_ids
+                    )
+                )
+                + "."
+            )
+
+        missing_ids = (
+            expected_ids
+            - referenced_ids
+            - ignored_ids
+        )
+
+        if missing_ids:
+            raise ChunkClassificationCoverageError(
+                "ChunkClassification requiere cobertura "
+                "completa de los segmentos; faltan "
+                "segment_ids: "
+                + ", ".join(
+                    str(segment_id)
+                    for segment_id in sorted(
+                        missing_ids
+                    )
+                )
+                + "."
+            )
 
     @staticmethod
     def _parse_kind(
