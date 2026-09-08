@@ -44,6 +44,28 @@ def test_installer_packages_complete_onedir_bundle() -> None:
     assert "createallsubdirs" in script
 
 
+def test_installer_declares_obsolete_prompt_cleanup_before_files() -> None:
+    script = installer_contract()
+    assert "[InstallDelete]" in script
+    assert script.index("[InstallDelete]") < script.index("[Files]")
+
+
+def test_installer_deletes_only_the_retired_prompt_on_upgrade() -> None:
+    delete_entries = []
+    section = ""
+    for line in installer_contract().splitlines():
+        line = line.strip()
+        if line.startswith("[") and line.endswith("]"):
+            section = line.casefold()
+        elif section == "[installdelete]" and line and not line.startswith(";"):
+            delete_entries.append(line)
+
+    # An exact allowlist rejects directory deletion, wildcards and extra paths.
+    assert delete_entries == [
+        'Type: files; Name: "{app}\\_internal\\prompts\\chunk_classification_v1.md"'
+    ]
+
+
 def test_installer_creates_start_menu_shortcut() -> None:
     script = installer_contract()
     assert 'Name: "{group}\\Meeting Assistant AI"' in script

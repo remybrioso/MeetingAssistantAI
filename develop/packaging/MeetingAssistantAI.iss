@@ -27,6 +27,9 @@ UninstallDisplayIcon={app}\{#AppExeName}
 CloseApplications=yes
 RestartApplications=no
 
+[InstallDelete]
+Type: files; Name: "{app}\_internal\prompts\chunk_classification_v1.md"
+
 [Files]
 Source: "..\dist\MeetingAssistantAI\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
